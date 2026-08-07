@@ -82,52 +82,52 @@ class _MainShellState extends State<MainShell> {
 
   void _toast(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    // Defer snackbar so it never races overlay dispose.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    });
   }
 
-  Future<void> _onTap(int index) async {
-    if (index == 2) {
-      final action = await showQuickAddSheet(context);
-      if (action == null || !mounted) return;
+  Future<void> _applyCapture(CaptureResult outcome) async {
+    if (!mounted || !outcome.saved) {
+      if (outcome.message != null) _toast(outcome.message!);
+      return;
+    }
 
-      // Do NOT setState / switch tabs before the capture UI finishes —
-      // that caused '_dependents.isEmpty' crashes.
-      final outcome = await QuickCaptureFlow(context).run(action);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
-      // Let overlays fully dispose before touching the tab tree.
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-      if (!mounted) return;
-
-      if (!outcome.saved) {
-        if (outcome.message != null) _toast(outcome.message!);
-        return;
-      }
-
-      // Land on Today so the user sees the updated numbers.
       if (_index != 0) {
         setState(() => _index = 0);
       }
 
+      // Wait one more frame after tab switch before mutating Today.
+      await Future<void>.delayed(Duration.zero);
+      if (!mounted) return;
+
       if (outcome.home != null) {
         _todayKey.currentState?.applyHome(outcome.home!);
-      } else if (action == QuickAddAction.water) {
-        // Water page updates via its own API; refresh Today quietly.
+      } else {
         await _todayKey.currentState?.reload(silent: true);
       }
 
       if (outcome.message != null) _toast(outcome.message!);
-
-      // Mark Journey/AI dirty — refresh when user opens those tabs.
-      // Avoid rebuilding siblings now (same crash source).
       _dirty = true;
+    });
+  }
+
+  Future<void> _onTap(int index) async {
+    if (index == 2) {
+      final outcome = await showQuickCapture(context);
+      if (!mounted || outcome == null) return;
+      await _applyCapture(outcome);
       return;
     }
 
     if (_dirty) {
-      // Refresh only the destination tab — never all tabs at once.
       _dirty = false;
     }
     if (!mounted) return;

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' as intl;
 
-import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/services/home_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/quick_add_sheet.dart';
@@ -26,7 +25,6 @@ class TodayTab extends StatefulWidget {
 
 class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
   final _home = HomeService();
-  final _features = FeatureService();
   final _scroll = ScrollController();
 
   HomeDashboard? _data;
@@ -115,43 +113,44 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final outcome =
-          await QuickCaptureFlow(context, api: _features).run(action);
-      if (!mounted) return;
-
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      final outcome = await QuickCaptureFlow(context).run(action);
       if (!mounted) return;
 
       if (!outcome.saved) {
+        if (outcome.message != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+              SnackBar(content: Text(outcome.message!)),
+            );
+          });
+        }
+        return;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        if (outcome.home != null) {
+          applyHome(outcome.home!);
+        } else {
+          await _load(silent: true);
+        }
+        if (!mounted) return;
         if (outcome.message != null) {
           ScaffoldMessenger.maybeOf(context)?.showSnackBar(
             SnackBar(content: Text(outcome.message!)),
           );
         }
-        return;
-      }
-
-      if (outcome.home != null) {
-        applyHome(outcome.home!);
-      } else {
-        await _load(silent: true);
-      }
-
-      if (!mounted) return;
-      if (outcome.message != null) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(content: Text(outcome.message!)),
-        );
-      }
-
-      // Soft-notify shell without forcing Today/AI rebuild races.
-      await widget.onDataChanged?.call(
-        refreshAi: false,
-        includeToday: false,
-      );
+        _dirtyNotify();
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _dirtyNotify() {
+    // Fire-and-forget; do not await rebuilds mid-frame.
+    widget.onDataChanged?.call(refreshAi: false, includeToday: false);
   }
 
   void _scrollToPlan() {
