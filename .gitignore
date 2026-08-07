@@ -1,0 +1,36 @@
+# Secrets
+.env
+.env.local
+**/.env
+**/.env.local
+
+# Dependencies / build
+**/node_modules/
+**/build/
+**/.dart_tool/
+**/.flutter-plugins-dependencies
+**/coverage/
+
+# OS / IDE
+.DS_Store
+**/.DS_Store
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Backend local data
+backend/data/
+
+# Flutter / Android / iOS generated
+frontend/android/app/debug/
+frontend/android/app/profile/
+frontend/android/app/release/
+frontend/ios/Flutter/.last_build_id
+**/doc/api/
+
+# Logs / misc
+*.log
+*.class
+*.pyc
+*.swp

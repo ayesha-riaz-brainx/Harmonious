@@ -1,0 +1,124 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:slot_1_tasks/core/config/api_config.dart';
+import 'package:slot_1_tasks/core/services/auth_service.dart';
+import 'package:slot_1_tasks/features/onboarding/data/ai_profile_builder.dart';
+import 'package:slot_1_tasks/features/onboarding/data/onboarding_draft.dart';
+
+class OnboardingService {
+  OnboardingService({this._client});
+
+  final SupabaseClient? _client;
+
+  SupabaseClient get _supabase => _client ?? Supabase.instance.client;
+
+  String _mapError(Object error) {
+    final text = error.toString().toLowerCase();
+    if (text.contains('onboarding_data') ||
+        text.contains('ai_profile') ||
+        (text.contains('column') && text.contains('does not exist'))) {
+      return 'Onboarding columns missing. Run supabase/onboarding.sql in Supabase SQL Editor.';
+    }
+    final raw = error.toString();
+    if (raw.length < 180) {
+      return raw
+          .replaceFirst('Exception: ', '')
+          .replaceFirst('PostgrestException(', '')
+          .split('\n')
+          .first;
+    }
+    return 'Unable to save onboarding. Please try again.';
+  }
+
+  Future<AiProfile> enrichWithAi({
+    required OnboardingDraft draft,
+    required AiProfile seed,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            ApiConfig.onboardingAiSummary,
+            headers: ApiConfig.authHeaders(),
+            body: jsonEncode({
+              'draft': draft.toJson(),
+              'ruleBased': seed.toJson(),
+            }),
+          )
+          .timeout(const Duration(seconds: 40));
+
+      final body = response.body.isNotEmpty
+          ? jsonDecode(response.body) as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      if (response.statusCode >= 400) {
+        // Missing key or AI failure — keep rule-based seed.
+        return seed;
+      }
+
+      final profile = body['profile'] as Map<String, dynamic>? ?? body;
+      return AiProfile(
+        primaryGoal: (profile['primary_goal'] as String?) ?? seed.primaryGoal,
+        secondaryGoals: ((profile['secondary_goals'] as List?) ?? seed.secondaryGoals)
+            .map((e) => e.toString())
+            .toList(),
+        calorieTarget:
+            (profile['calorie_target'] as num?)?.toInt() ?? seed.calorieTarget,
+        waterGoalLiters: (profile['water_goal_liters'] as num?)?.toDouble() ??
+            seed.waterGoalLiters,
+        sleepGoalHours:
+            (profile['sleep_goal_hours'] as String?) ?? seed.sleepGoalHours,
+        workoutPlan: (profile['workout_plan'] as String?) ?? seed.workoutPlan,
+        focusAreas: ((profile['focus_areas'] as List?) ?? seed.focusAreas)
+            .map((e) => e.toString())
+            .toList(),
+        message: (profile['message'] as String?) ?? seed.message,
+      );
+    } catch (_) {
+      return seed;
+    }
+  }
+
+  Future<AuthResult> saveOnboarding({
+    required OnboardingDraft draft,
+    required AiProfile profile,
+  }) async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        return AuthResult.failure('Session expired. Please log in again.');
+      }
+
+      final payload = <String, dynamic>{
+        'id': user.id,
+        'email': user.email,
+        'onboarding_data': draft.toJson(),
+        'ai_profile': profile.toJson(),
+        'onboarding_completed': true,
+        'profile_setup_completed': true,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      if (draft.age != null) payload['age'] = draft.age;
+      if (draft.gender != null) payload['gender'] = draft.gender;
+      if (draft.height != null) payload['height'] = draft.height;
+      if (draft.weight != null) payload['weight'] = draft.weight;
+      if (draft.activityLevel != null) {
+        payload['activity_level'] = draft.activityLevel;
+      }
+      if (draft.birthday != null) {
+        payload['birthday'] =
+            draft.birthday!.toIso8601String().split('T').first;
+      }
+      payload['height_unit'] = draft.heightUnit;
+      payload['weight_unit'] = draft.weightUnit;
+
+      await _supabase.from('profiles').upsert(payload);
+      return AuthResult.success(message: 'Your AI profile is ready.');
+    } catch (error) {
+      return AuthResult.failure(_mapError(error));
+    }
+  }
+}
