@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_background.dart';
+import 'package:slot_1_tasks/shared/widgets/harmonious_gradient_button.dart';
+import 'package:slot_1_tasks/shared/widgets/harmonious_ui.dart';
 
 class WorkoutPlanPage extends StatefulWidget {
   const WorkoutPlanPage({super.key});
@@ -70,16 +72,17 @@ class _WorkoutPlanPageState extends State<WorkoutPlanPage> {
           title: const Text('Workout plan'),
         ),
         body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          padding: const EdgeInsets.fromLTRB(
+            HarmoniousSpacing.screenHorizontal,
+            8,
+            HarmoniousSpacing.screenHorizontal,
+            32,
+          ),
           children: [
-            const Text(
-              'Your weekly training plan',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Tell Harmonious your schedule and ability. We’ll build a clear day-by-day plan.',
-              style: TextStyle(color: AppColors.textSecondary, height: 1.4),
+            const HarmoniousSectionHeader(
+              title: 'Your weekly training plan',
+              subtitle:
+                  'Tell Harmonious your schedule and ability. We’ll build a clear day-by-day plan.',
             ),
             const SizedBox(height: 16),
             TextField(
@@ -97,17 +100,20 @@ class _WorkoutPlanPageState extends State<WorkoutPlanPage> {
               ),
             ),
             const SizedBox(height: 14),
-            FilledButton.icon(
+            HarmoniousGradientButton(
+              label: _busy ? 'Building plan…' : 'Create workout plan',
+              isLoading: _busy,
               onPressed: _busy ? null : _generate,
-              icon: _busy
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.fitness_center_rounded),
-              label: Text(_busy ? 'Building plan…' : 'Create workout plan'),
             ),
+            if (_result == null && !_busy) ...[
+              const SizedBox(height: 24),
+              const HarmoniousEmptyState(
+                icon: Icons.fitness_center_outlined,
+                title: 'No plan yet',
+                message: 'Add your preferences above, then tap Create workout plan.',
+                compact: true,
+              ),
+            ],
             if (_result != null) ...[
               const SizedBox(height: 22),
               Text(

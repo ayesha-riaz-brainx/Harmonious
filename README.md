@@ -8,6 +8,10 @@ slot 1 tasks/
 └── SUPABASE_SETUP.md
 ```
 
+## Documentation
+
+- **[Complete App Flows](docs/FLOWS.md)** — navigation, tabs, quick capture, AI tools, backend data flow, and user journeys
+
 ## Auth flow
 
 ```

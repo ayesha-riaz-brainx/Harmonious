@@ -28,14 +28,27 @@ class ApiConfig {
       Uri.parse('$baseUrl/api/home/today/refresh-ai');
   static Uri get onboardingAiSummary =>
       Uri.parse('$baseUrl/api/onboarding/ai-summary');
-  static Uri feature(String path) =>
-      Uri.parse('$baseUrl/api/features/$path');
+
+  static Uri feature(String path, {Map<String, String>? query}) {
+    final normalized = path.startsWith('/') ? path.substring(1) : path;
+    final pathOnly = normalized.split('?').first;
+    final uri = Uri.parse('$baseUrl/api/features/$pathOnly');
+    if (query == null || query.isEmpty) return uri;
+    return uri.replace(queryParameters: query);
+  }
 
   static Map<String, String> authHeaders() {
     final session = Supabase.instance.client.auth.currentSession;
     final token = session?.accessToken;
+    final now = DateTime.now();
+    final clientDate =
+        '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
     return {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-Client-Date': clientDate,
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }

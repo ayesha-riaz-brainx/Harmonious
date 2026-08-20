@@ -54,11 +54,21 @@ class OnboardingScaffold extends StatelessWidget {
                               builder: (context, value, _) {
                                 return ClipRRect(
                                   borderRadius: BorderRadius.circular(99),
-                                  child: LinearProgressIndicator(
-                                    value: value,
-                                    minHeight: 6,
-                                    backgroundColor: AppColors.surfaceBorder,
-                                    color: AppColors.lavender,
+                                  child: Stack(
+                                    children: [
+                                      LinearProgressIndicator(
+                                        value: 1,
+                                        minHeight: 6,
+                                        backgroundColor: AppColors.surfaceBorder,
+                                        color: AppColors.surfaceBorder,
+                                      ),
+                                      LinearProgressIndicator(
+                                        value: value,
+                                        minHeight: 6,
+                                        backgroundColor: Colors.transparent,
+                                        color: AppColors.primary,
+                                      ),
+                                    ],
                                   ),
                                 );
                               },
@@ -125,7 +135,7 @@ class OnboardingStepHeader extends StatelessWidget {
         Text(
           eyebrow.toUpperCase(),
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppColors.lavenderBright,
+                color: AppColors.primaryBright,
                 letterSpacing: 1.1,
               ),
         ),
@@ -276,17 +286,17 @@ class _AnimatedChipState extends State<_AnimatedChip>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               color: widget.selected
-                  ? AppColors.lavender.withValues(alpha: 0.18)
+                  ? AppColors.primary.withValues(alpha: 0.18)
                   : AppColors.surface,
               border: Border.all(
                 color: widget.selected
-                    ? AppColors.lavender
+                    ? AppColors.primary
                     : AppColors.surfaceBorder,
               ),
               boxShadow: widget.selected
                   ? [
                       BoxShadow(
-                        color: AppColors.lavender.withValues(alpha: 0.18),
+                        color: AppColors.primary.withValues(alpha: 0.18),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -297,7 +307,7 @@ class _AnimatedChipState extends State<_AnimatedChip>
               widget.label,
               style: TextStyle(
                 color: widget.selected
-                    ? AppColors.lavenderBright
+                    ? AppColors.primaryBright
                     : AppColors.textSecondary,
                 fontWeight: FontWeight.w600,
                 fontSize: 13.5,

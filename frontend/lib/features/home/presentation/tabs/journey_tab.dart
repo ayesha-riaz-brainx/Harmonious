@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_background.dart';
+import 'package:slot_1_tasks/shared/widgets/harmonious_ui.dart';
 
 class JourneyTab extends StatefulWidget {
   const JourneyTab({super.key});
@@ -14,10 +14,11 @@ class JourneyTab extends StatefulWidget {
 
 class JourneyTabState extends State<JourneyTab> {
   final _api = FeatureService();
-  List<Map<String, dynamic>> _timeline = [];
   List<Map<String, dynamic>> _trends = [];
+  Map<String, dynamic>? _todayReview;
   bool _loading = true;
   bool _reporting = false;
+  String? _reportingPeriod;
 
   @override
   void initState() {
@@ -30,9 +31,9 @@ class JourneyTabState extends State<JourneyTab> {
       final data = await _api.get('journey');
       if (!mounted) return;
       setState(() {
-        _timeline = ((data['timeline'] as List?) ?? [])
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
+        _todayReview = data['today_review'] is Map
+            ? Map<String, dynamic>.from(data['today_review'] as Map)
+            : null;
         _trends = ((data['trends'] as List?) ?? [])
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
@@ -48,17 +49,26 @@ class JourneyTabState extends State<JourneyTab> {
   Future<void> refresh() => _load();
 
   Future<void> _review(String period) async {
-    setState(() => _reporting = true);
+    setState(() {
+      _reporting = true;
+      _reportingPeriod = period;
+    });
     try {
       final data = await _api.post('journey/review', {'period': period});
       if (!mounted) return;
-      setState(() => _reporting = false);
+      setState(() {
+        _reporting = false;
+        _reportingPeriod = null;
+      });
       final report = Map<String, dynamic>.from(data['report'] as Map? ?? {});
       await _showReport(report);
       await _load();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _reporting = false);
+      setState(() {
+        _reporting = false;
+        _reportingPeriod = null;
+      });
       _toast(error);
     }
   }
@@ -66,8 +76,15 @@ class JourneyTabState extends State<JourneyTab> {
   Future<void> _showReport(Map<String, dynamic> report) {
     final highlights =
         ((report['highlights'] as List?) ?? []).map((e) => e.toString());
-    final next =
-        ((report['next_steps'] as List?) ?? []).map((e) => e.toString());
+    final next = ((report['next_steps'] as List?) ?? [])
+        .map((e) => e.toString())
+        .followedBy(
+          ((report['actions'] as List?) ?? []).map((e) => e.toString()),
+        )
+        .toSet()
+        .toList();
+    final source = report['source']?.toString() ?? 'openai';
+    final isRules = source == 'rules';
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -85,35 +102,65 @@ class JourneyTabState extends State<JourneyTab> {
           children: [
             Text(
               report['title']?.toString() ?? 'Progress Review',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
+            if (isRules) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Text(
+                  'From your logs',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             Text(
               report['summary']?.toString() ?? '',
-              style: const TextStyle(height: 1.5),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    height: 1.5,
+                    color: AppColors.textSecondary,
+                  ),
             ),
-            const SizedBox(height: 18),
-            const Text(
-              'Highlights',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            for (final item in highlights)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text('• $item'),
-              ),
-            const SizedBox(height: 14),
-            const Text(
-              'Next steps',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            for (final item in next)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text('• $item'),
-              ),
+            if (highlights.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              HarmoniousSectionHeader(title: 'Highlights'),
+              const SizedBox(height: 8),
+              for (final item in highlights)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    '• $item',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+            ],
+            if (next.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              HarmoniousSectionHeader(title: 'Next steps'),
+              const SizedBox(height: 8),
+              for (final item in next)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    '• $item',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+            ],
           ],
         ),
       ),
@@ -128,28 +175,64 @@ class JourneyTabState extends State<JourneyTab> {
     );
   }
 
-  Map<String, List<Map<String, dynamic>>> _groupedTimeline() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final groups = <String, List<Map<String, dynamic>>>{};
+  Map<String, dynamic>? get _reviewFromTrends {
+    if (_todayReview != null) return _todayReview;
+    if (_trends.isEmpty) return null;
 
-    for (final entry in _timeline) {
-      final time = DateTime.tryParse(entry['captured_at']?.toString() ?? '');
-      final local = time?.toLocal();
-      final day = local == null
-          ? null
-          : DateTime(local.year, local.month, local.day);
-      final label = day == null
-          ? 'Earlier'
-          : day == today
-              ? 'Today'
-              : day == yesterday
-                  ? 'Yesterday'
-                  : DateFormat('EEEE, MMM d').format(day);
-      groups.putIfAbsent(label, () => []).add(entry);
+    final now = DateTime.now();
+    final todayKey =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    Map<String, dynamic>? row;
+    for (final entry in _trends.reversed) {
+      final raw = entry['log_date']?.toString() ?? '';
+      final key = raw.length >= 10 ? raw.substring(0, 10) : raw;
+      if (key == todayKey) {
+        row = entry;
+        break;
+      }
     }
-    return groups;
+    if (row == null) {
+      return const {
+        'has_data': false,
+        'meals': {'label': 'No meals logged'},
+        'water': {'label': 'No water logged'},
+        'activity': {'label': 'No activity logged'},
+        'mood': {'label': 'Not set'},
+        'sleep': {'label': 'Not logged'},
+      };
+    }
+
+    final calories = (row['calories'] as num?)?.toInt() ?? 0;
+    final water = (row['water_liters'] as num?)?.toDouble() ?? 0;
+    final glasses = (water / 0.25).round();
+    final exercise = (row['exercise_minutes'] as num?)?.toInt() ?? 0;
+    final mood = row['mood']?.toString();
+    final sleep = (row['sleep_hours'] as num?)?.toDouble();
+    final weight = (row['weight'] as num?)?.toDouble();
+
+    return {
+      'has_data': calories > 0 ||
+          water > 0 ||
+          exercise > 0 ||
+          (mood != null && mood.isNotEmpty) ||
+          (sleep != null && sleep > 0) ||
+          (weight != null && weight > 0),
+      'meals': {'label': calories > 0 ? '$calories kcal logged' : 'No meals logged'},
+      'water': {
+        'label': water > 0
+            ? '$glasses glass${glasses == 1 ? '' : 'es'} · ${water.toStringAsFixed(1)} L'
+            : 'No water logged',
+      },
+      'activity': {
+        'label': exercise > 0 ? '$exercise min exercise' : 'No activity logged',
+      },
+      'mood': {'label': mood ?? 'Not set'},
+      'sleep': {
+        'label': sleep != null && sleep > 0
+            ? '${sleep % 1 == 0 ? sleep.toStringAsFixed(0) : sleep.toStringAsFixed(1)} h sleep'
+            : 'Not logged',
+      },
+    };
   }
 
   List<Map<String, dynamic>> get _latestTrends {
@@ -159,74 +242,45 @@ class JourneyTabState extends State<JourneyTab> {
 
   @override
   Widget build(BuildContext context) {
-    final groups = _groupedTimeline();
+    final review = _reviewFromTrends;
 
     return HarmoniousBackground(
       child: SafeArea(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
-                color: AppColors.lavender,
+                color: AppColors.primary,
                 onRefresh: _load,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+                  padding: const EdgeInsets.fromLTRB(
+                    HarmoniousSpacing.screenHorizontal,
+                    16,
+                    HarmoniousSpacing.screenHorizontal,
+                    32,
+                  ),
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
                   children: [
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.insights_rounded,
-                          color: AppColors.lavenderBright,
-                          size: 27,
-                        ),
-                        SizedBox(width: 10),
-                        Text(
-                          'Journey',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
+                    const HarmoniousPageHeader(
+                      icon: Icons.insights_rounded,
+                      title: 'Journey',
+                      subtitle:
+                          'Progress at a glance — no endless event lists.',
                     ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Your history, patterns, and progress reports.',
-                      style: TextStyle(color: AppColors.textSecondary),
+                    const SizedBox(height: HarmoniousSpacing.sectionGap),
+                    _todaysReview(review),
+                    const HarmoniousSectionDivider(),
+                    const SizedBox(height: 12),
+                    const HarmoniousSectionHeader(
+                      title: 'Trends',
+                      subtitle: 'Last two weeks from your daily logs',
                     ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Progress',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     _progressGrid(),
-                    const SizedBox(height: 20),
+                    const HarmoniousSectionDivider(),
+                    const SizedBox(height: 12),
                     _reports(),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Timeline',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 10),
-                    if (_timeline.isEmpty)
-                      _empty()
-                    else
-                      for (final group in groups.entries) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8, bottom: 10),
-                          child: Text(
-                            group.key,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.lavenderBright,
-                            ),
-                          ),
-                        ),
-                        for (final entry in group.value) _timelineItem(entry),
-                      ],
                   ],
                 ),
               ),
@@ -234,8 +288,147 @@ class JourneyTabState extends State<JourneyTab> {
     );
   }
 
+  Widget _todaysReview(Map<String, dynamic>? review) {
+    final hasData = review?['has_data'] == true;
+    final meals = Map<String, dynamic>.from(review?['meals'] as Map? ?? {});
+    final water = Map<String, dynamic>.from(review?['water'] as Map? ?? {});
+    final activity =
+        Map<String, dynamic>.from(review?['activity'] as Map? ?? {});
+    final mood = Map<String, dynamic>.from(review?['mood'] as Map? ?? {});
+    final sleep = Map<String, dynamic>.from(review?['sleep'] as Map? ?? {});
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const HarmoniousSectionHeader(
+          title: "Today's Review",
+          subtitle: 'A quick summary of what you logged today.',
+        ),
+        const SizedBox(height: 12),
+        HarmoniousCard(
+          child: hasData
+              ? Column(
+                  children: [
+                    _reviewRow(
+                      Icons.restaurant_outlined,
+                      'Meals',
+                      meals['label']?.toString() ?? '—',
+                      AppColors.amber,
+                    ),
+                    _reviewRow(
+                      Icons.water_drop_outlined,
+                      'Water',
+                      water['label']?.toString() ?? '—',
+                      AppColors.sky,
+                    ),
+                    _reviewRow(
+                      Icons.directions_run_outlined,
+                      'Activity',
+                      activity['label']?.toString() ?? '—',
+                      AppColors.coral,
+                    ),
+                    _reviewRow(
+                      Icons.sentiment_satisfied_alt_outlined,
+                      'Mood',
+                      mood['label']?.toString() ?? 'Not set',
+                      AppColors.mint,
+                    ),
+                    _reviewRow(
+                      Icons.bedtime_outlined,
+                      'Sleep',
+                      sleep['label']?.toString() ?? 'Not logged',
+                      AppColors.secondary,
+                      isLast: true,
+                    ),
+                  ],
+                )
+              : const HarmoniousEmptyState(
+                  icon: Icons.add_circle_outline,
+                  title: 'Nothing logged yet',
+                  message:
+                      'Tap Add on the bottom bar to log meals, water, mood, or activity.',
+                  compact: true,
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _reviewRow(
+    IconData icon,
+    String label,
+    String value,
+    Color color, {
+    bool isLast = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 17, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
+            ),
+          ),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _rowHasMeaningfulData(Map<String, dynamic> row) {
+    final water = (row['water_liters'] as num?)?.toDouble() ?? 0;
+    final calories = (row['calories'] as num?)?.toInt() ?? 0;
+    final exercise = (row['exercise_minutes'] as num?)?.toInt() ?? 0;
+    final sleep = (row['sleep_hours'] as num?)?.toDouble() ?? 0;
+    final weight = (row['weight'] as num?)?.toDouble();
+    final mood = row['mood']?.toString() ?? '';
+    return water > 0 ||
+        calories > 0 ||
+        exercise > 0 ||
+        sleep > 0 ||
+        (weight != null && weight > 0) ||
+        mood.isNotEmpty;
+  }
+
   Widget _progressGrid() {
     final data = _latestTrends;
+    if (data.isEmpty || !data.any(_rowHasMeaningfulData)) {
+      return const HarmoniousCard(
+        child: HarmoniousEmptyState(
+          icon: Icons.show_chart_outlined,
+          title: 'No trend data yet',
+          message: 'Log water, workouts, or sleep for a few days to see charts.',
+          compact: true,
+        ),
+      );
+    }
+
     return Column(
       children: [
         Row(
@@ -245,23 +438,29 @@ class JourneyTabState extends State<JourneyTab> {
                 title: 'Weight',
                 color: AppColors.aqua,
                 data: data,
-                read: (row) => (row['weight'] as num?)?.toDouble(),
+                read: (row) {
+                  final value = (row['weight'] as num?)?.toDouble();
+                  return value != null && value > 0 ? value : null;
+                },
                 normalize: (v, max) => max <= 0 ? 0 : (v / max).clamp(0, 1),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
               child: _miniChart(
                 title: 'Water',
                 color: AppColors.sky,
                 data: data,
-                read: (row) => (row['water_liters'] as num?)?.toDouble() ?? 0,
+                read: (row) {
+                  final value = (row['water_liters'] as num?)?.toDouble();
+                  return value != null && value > 0 ? value : null;
+                },
                 normalize: (v, _) => (v / 3).clamp(0, 1),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -269,24 +468,30 @@ class JourneyTabState extends State<JourneyTab> {
                 title: 'Workouts',
                 color: AppColors.coral,
                 data: data,
-                read: (row) =>
-                    (row['exercise_minutes'] as num?)?.toDouble() ?? 0,
+                read: (row) {
+                  final value =
+                      (row['exercise_minutes'] as num?)?.toDouble();
+                  return value != null && value > 0 ? value : null;
+                },
                 normalize: (v, _) => (v / 45).clamp(0, 1),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
               child: _miniChart(
                 title: 'Sleep',
-                color: AppColors.lavender,
+                color: AppColors.secondary,
                 data: data,
-                read: (row) => (row['sleep_hours'] as num?)?.toDouble() ?? 0,
+                read: (row) {
+                  final value = (row['sleep_hours'] as num?)?.toDouble();
+                  return value != null && value > 0 ? value : null;
+                },
                 normalize: (v, _) => (v / 10).clamp(0, 1),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _moodTrend(data),
       ],
     );
@@ -305,19 +510,18 @@ class JourneyTabState extends State<JourneyTab> {
         : values.reduce((a, b) => a > b ? a : b).clamp(1, double.infinity);
     final latest = values.isEmpty ? null : values.last;
 
-    return Container(
+    return HarmoniousCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.surfaceBorder),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: AppColors.textPrimary,
+                ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -330,11 +534,11 @@ class JourneyTabState extends State<JourneyTab> {
                         : title == 'Sleep'
                             ? '${latest.toStringAsFixed(1)} h'
                             : '${latest.round()} min',
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-            ),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -360,26 +564,27 @@ class JourneyTabState extends State<JourneyTab> {
       for (final row in data)
         if ((row['mood']?.toString() ?? '').isNotEmpty) row['mood'].toString(),
     ];
-    return Container(
-      width: double.infinity,
+    return HarmoniousCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.surfaceBorder),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Mood trends',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: AppColors.textPrimary,
+                ),
           ),
           const SizedBox(height: 10),
           if (moods.isEmpty)
-            const Text(
+            Text(
               'Log mood from Add to see trends here.',
-              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                  ),
             )
           else
             Wrap(
@@ -399,7 +604,9 @@ class JourneyTabState extends State<JourneyTab> {
                     ),
                     child: Text(
                       mood,
-                      style: const TextStyle(fontSize: 12),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                          ),
                     ),
                   ),
               ],
@@ -411,173 +618,79 @@ class JourneyTabState extends State<JourneyTab> {
 
   Widget _reports() {
     final reports = [
-      ('Weekly AI Review', 'Weekly'),
-      ('Monthly AI Review', 'Monthly'),
-      ('Yearly Life Report', 'Yearly'),
+      ('Weekly review', 'Weekly', 'Last 7 days'),
+      ('Monthly review', 'Monthly', 'Last 31 days'),
+      ('Yearly review', 'Yearly', 'Last 365 days'),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Reports',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        const HarmoniousSectionHeader(
+          title: 'Reports',
+          subtitle:
+              'Summaries from your logs. AI when available, otherwise rule-based.',
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         for (final report in reports)
           Padding(
-            padding: const EdgeInsets.only(bottom: 9),
-            child: InkWell(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: HarmoniousCard(
+              padding: const EdgeInsets.all(15),
               onTap: _reporting ? null : () => _review(report.$2),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.lavender.withValues(alpha: 0.12),
-                      AppColors.surface,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.surfaceBorder),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
                       Icons.auto_awesome_rounded,
-                      color: AppColors.lavenderBright,
+                      color: AppColors.primaryBright,
+                      size: 20,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        report.$1,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          report.$1,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          report.$3,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textMuted,
+                                fontSize: 11,
+                              ),
+                        ),
+                      ],
                     ),
-                    _reporting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(
-                            Icons.chevron_right_rounded,
-                            color: AppColors.textMuted,
-                          ),
-                  ],
-                ),
+                  ),
+                  _reporting && _reportingPeriod == report.$2
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.textMuted,
+                        ),
+                ],
               ),
             ),
           ),
       ],
     );
   }
-
-  Widget _timelineItem(Map<String, dynamic> entry) {
-    final type = entry['type']?.toString() ?? 'update';
-    final payload = Map<String, dynamic>.from(entry['payload'] as Map? ?? {});
-    final time = DateTime.tryParse(entry['captured_at']?.toString() ?? '');
-    final config = _typeConfig(type);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: config.$2.withValues(alpha: 0.16),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(config.$1, color: config.$2, size: 19),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.surfaceBorder),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _describe(type, payload),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  if (time != null) ...[
-                    const SizedBox(height: 5),
-                    Text(
-                      DateFormat('h:mm a').format(time.toLocal()),
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  (IconData, Color) _typeConfig(String type) => switch (type) {
-        'water' => (Icons.water_drop_rounded, AppColors.sky),
-        'meal' => (Icons.restaurant_rounded, AppColors.amber),
-        'weight' => (Icons.monitor_weight_outlined, AppColors.aqua),
-        'workout' => (Icons.fitness_center_rounded, AppColors.coral),
-        'mood' => (Icons.mood_rounded, AppColors.mint),
-        'sleep' => (Icons.bedtime_rounded, AppColors.lavender),
-        'journal' => (Icons.edit_note_rounded, AppColors.sky),
-        'health_report' => (Icons.description_rounded, AppColors.coral),
-        'ai_report' => (Icons.auto_awesome_rounded, AppColors.lavender),
-        'ai_tool' => (Icons.auto_fix_high_rounded, AppColors.aqua),
-        _ => (Icons.check_circle_outline_rounded, AppColors.textSecondary),
-      };
-
-  String _describe(String type, Map<String, dynamic> payload) {
-    return switch (type) {
-      'water' => () {
-        final glasses = payload['glasses'];
-        if (glasses != null) return '$glasses glass${glasses == 1 ? '' : 'es'} logged';
-        final liters = (payload['liters'] as num?)?.toDouble() ?? 0.25;
-        final count = (liters / 0.25).round();
-        return '$count glass${count == 1 ? '' : 'es'} logged';
-      }(),
-      'meal' =>
-        '${payload['name'] ?? 'Meal'} · ${payload['calories'] ?? 0} kcal',
-      'weight' => 'Weight updated to ${payload['weight']} kg',
-      'workout' =>
-        '${payload['activity'] ?? 'Workout'} · ${payload['minutes'] ?? 0} min',
-      'mood' => 'Mood: ${payload['mood'] ?? 'Updated'}',
-      'sleep' => '${payload['hours'] ?? 0} hours sleep logged',
-      'journal' => payload['text']?.toString() ?? 'Journal entry',
-      'health_report' =>
-        'Health report added: ${payload['name'] ?? 'Document'}',
-      'ai_report' => '${payload['period'] ?? 'Progress'} AI report created',
-      'ai_tool' => 'AI tool: ${payload['tool'] ?? 'analysis'}',
-      _ => type.replaceAll('_', ' '),
-    };
-  }
-
-  Widget _empty() => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.surfaceBorder),
-        ),
-        child: const Text(
-          'Use Add to log your first activity. It will appear here instantly.',
-          style: TextStyle(color: AppColors.textSecondary, height: 1.4),
-        ),
-      );
 }
 
 class _SparklinePainter extends CustomPainter {

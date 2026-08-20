@@ -7,7 +7,7 @@ Future<void> showBreathingExerciseModal(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppColors.surface,
+    backgroundColor: AppColors.cardSurface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
@@ -144,14 +144,14 @@ class _BreathingSheetState extends State<_BreathingSheet>
                                 shape: BoxShape.circle,
                                 gradient: RadialGradient(
                                   colors: [
-                                    AppColors.sky.withValues(alpha: 0.95),
-                                    AppColors.lavender.withValues(alpha: 0.55),
-                                    AppColors.lavender.withValues(alpha: 0.15),
+                                    AppColors.primary.withValues(alpha: 0.95),
+                                    AppColors.primaryBright.withValues(alpha: 0.55),
+                                    AppColors.primary.withValues(alpha: 0.15),
                                   ],
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.sky.withValues(alpha: 0.35),
+                                    color: AppColors.primary.withValues(alpha: 0.35),
                                     blurRadius: 28,
                                     spreadRadius: 2,
                                   ),

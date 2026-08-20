@@ -190,7 +190,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                             },
                       child: const Text(
                         'Use a different email',
-                        style: TextStyle(color: AppColors.lavenderBright),
+                        style: TextStyle(color: AppColors.primary),
                       ),
                     ),
                   ],
@@ -202,7 +202,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     },
                     child: const Text(
                       AppStrings.backToLogin,
-                      style: TextStyle(color: AppColors.lavenderBright),
+                      style: TextStyle(color: AppColors.primary),
                     ),
                   ),
                 ],

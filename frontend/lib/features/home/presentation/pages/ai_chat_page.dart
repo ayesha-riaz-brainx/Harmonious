@@ -9,8 +9,9 @@ import 'package:record/record.dart';
 import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_background.dart';
+import 'package:slot_1_tasks/shared/widgets/harmonious_ui.dart';
 
-/// Ephemeral personal companion chat. Session only — not saved.
+/// Ephemeral AI chat. Session only — not saved.
 class AiChatPage extends StatefulWidget {
   const AiChatPage({
     super.key,
@@ -236,7 +237,7 @@ class _AiChatPageState extends State<AiChatPage> {
           title: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Your companion'),
+              Text('AI Chat'),
               Text(
                 'Private · not saved to history',
                 style: TextStyle(
@@ -359,41 +360,11 @@ class _EmptyState extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.lavender.withValues(alpha: 0.16),
-              ),
-              child: const Icon(
-                Icons.auto_awesome_rounded,
-                color: AppColors.lavenderBright,
-                size: 30,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Your $coach is ready',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
+        child: HarmoniousEmptyState(
+          icon: Icons.auto_awesome_rounded,
+          title: 'Your $coach is ready',
+          message:
               'Switch coaches above anytime. Ask about habits, food, workouts, mood, or goals — this session stays private.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                height: 1.45,
-              ),
-            ),
-          ],
         ),
       ),
     );

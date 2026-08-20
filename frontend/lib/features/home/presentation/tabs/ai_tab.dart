@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/ai_chat_page.dart';
+import 'package:slot_1_tasks/features/home/presentation/pages/bmi_assessment_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/emotional_support_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/health_journey_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/water_tracking_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/workout_plan_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/water_glass_card.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_background.dart';
+import 'package:slot_1_tasks/shared/widgets/harmonious_ui.dart';
 
 class AiTab extends StatefulWidget {
   const AiTab({
@@ -35,6 +37,13 @@ class AiTabState extends State<AiTab> {
       AppColors.sky,
     ),
     (
+      'bmi_assessment',
+      'BMI check',
+      'WHO-style weight range',
+      Icons.monitor_weight_outlined,
+      AppColors.aqua,
+    ),
+    (
       'emotional_support',
       'Emotional support',
       'Grounding and check-ins',
@@ -46,7 +55,7 @@ class AiTabState extends State<AiTab> {
       'Health journey',
       'Your story over time',
       Icons.timeline_rounded,
-      AppColors.aqua,
+      AppColors.mint,
     ),
     (
       'diet_plan',
@@ -60,14 +69,7 @@ class AiTabState extends State<AiTab> {
       'Workout plan',
       'Weekly training plan',
       Icons.fitness_center_rounded,
-      AppColors.lavenderBright,
-    ),
-    (
-      'progress_review',
-      'Review progress',
-      'AI wins and next steps',
-      Icons.insights_rounded,
-      AppColors.mint,
+      AppColors.primaryBright,
     ),
   ];
 
@@ -101,6 +103,12 @@ class AiTabState extends State<AiTab> {
       }
       return;
     }
+    if (tool == 'bmi_assessment') {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const BmiAssessmentPage()),
+      );
+      return;
+    }
     if (tool == 'emotional_support') {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => const EmotionalSupportPage()),
@@ -125,10 +133,7 @@ class AiTabState extends State<AiTab> {
 
   Future<void> _runTool(String tool, String title) async {
     Map<String, dynamic> input = {};
-    final autoTools = {'progress_review'};
-
-    if (!autoTools.contains(tool)) {
-      final text = await showDialog<String>(
+    final text = await showDialog<String>(
         context: context,
         builder: (dialogContext) {
           final controller = TextEditingController();
@@ -157,9 +162,8 @@ class AiTabState extends State<AiTab> {
           );
         },
       );
-      if (text == null) return;
-      input = {'text': text};
-    }
+    if (text == null) return;
+    input = {'text': text};
 
     if (!mounted) return;
     showDialog<void>(
@@ -177,9 +181,7 @@ class AiTabState extends State<AiTab> {
       Navigator.of(context, rootNavigator: true).pop();
       final result = Map<String, dynamic>.from(data['result'] as Map? ?? {});
       await _showToolResult(result);
-      if (tool == 'progress_review') {
-        await widget.onDataChanged?.call();
-      }
+      await widget.onDataChanged?.call();
     } catch (error) {
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
@@ -190,6 +192,19 @@ class AiTabState extends State<AiTab> {
   Future<void> _showToolResult(Map<String, dynamic> result) {
     final actions =
         ((result['actions'] as List?) ?? []).map((e) => e.toString()).toList();
+    final highlights = ((result['highlights'] as List?) ?? [])
+        .map((e) => e.toString())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final nested = result['report'] is Map
+        ? Map<String, dynamic>.from(result['report'] as Map)
+        : null;
+    if (highlights.isEmpty && nested != null) {
+      highlights.addAll(
+        ((nested['highlights'] as List?) ?? []).map((e) => e.toString()),
+      );
+    }
+    final source = result['source']?.toString() ?? nested?['source']?.toString();
     return showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surface,
@@ -214,6 +229,26 @@ class AiTabState extends State<AiTab> {
                 result['summary']?.toString() ?? '',
                 style: const TextStyle(height: 1.5),
               ),
+              if (source == 'rules') ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'From your logs (no AI key required)',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                ),
+              ],
+              if (highlights.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Highlights',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                for (final item in highlights)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text('• $item'),
+                  ),
+              ],
               if (actions.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 for (final action in actions)
@@ -250,87 +285,20 @@ class AiTabState extends State<AiTab> {
     return HarmoniousBackground(
       child: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-          children: [
-            const Row(
-              children: [
-                Icon(
-                  Icons.auto_awesome_rounded,
-                  color: AppColors.lavenderBright,
-                  size: 26,
-                ),
-                SizedBox(width: 10),
-                Text(
-                  'Your AI',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Personal chat and tools built around your day.',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 18),
-            _chatLaunchCard(),
-            const SizedBox(height: 22),
-            _toolsGrid(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _chatLaunchCard() {
-    return InkWell(
-      onTap: _openChat,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            colors: [
-              AppColors.lavender.withValues(alpha: 0.22),
-              AppColors.surface,
-            ],
+          padding: const EdgeInsets.fromLTRB(
+            HarmoniousSpacing.screenHorizontal,
+            14,
+            HarmoniousSpacing.screenHorizontal,
+            32,
           ),
-          border: Border.all(color: AppColors.surfaceBorder),
-        ),
-        child: const Row(
           children: [
-            Icon(Icons.chat_bubble_rounded, color: AppColors.lavenderBright),
-            SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Talk with your companion',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Pick a coach inside chat. Private session — not saved.',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
+            const HarmoniousPageHeader(
+              icon: Icons.auto_awesome_rounded,
+              title: 'Your AI',
+              subtitle: 'Tools for your day — AI only when you ask.',
             ),
-            Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+            const SizedBox(height: HarmoniousSpacing.sectionGap),
+            _toolsGrid(),
           ],
         ),
       ),
@@ -341,9 +309,9 @@ class AiTabState extends State<AiTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'AI Tools',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        const HarmoniousSectionHeader(
+          title: 'Tools',
+          subtitle: 'Tap a tool to open it or generate a plan',
         ),
         const SizedBox(height: 12),
         GridView.builder(
@@ -352,73 +320,56 @@ class AiTabState extends State<AiTab> {
           itemCount: _tools.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 0.92,
+            childAspectRatio: 0.95,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),
           itemBuilder: (context, index) {
             final tool = _tools[index];
             final color = tool.$5;
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _openTool(tool.$1, tool.$2),
-                borderRadius: BorderRadius.circular(20),
-                child: Ink(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        color.withValues(alpha: 0.18),
-                        AppColors.surface,
-                      ],
+            return HarmoniousCard(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+              accentColor: color,
+              onTap: () => _openTool(tool.$1, tool.$2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (tool.$1 == 'water_intake')
+                    const WaterBottleProgress(
+                      progress: 0.55,
+                      width: 36,
+                      height: 52,
+                      showMarks: false,
+                    )
+                  else
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(tool.$4, color: color, size: 22),
                     ),
-                    border: Border.all(color: color.withValues(alpha: 0.35)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (tool.$1 == 'water_intake')
-                        const WaterBottleProgress(
-                          progress: 0.55,
-                          width: 36,
-                          height: 52,
-                          showMarks: false,
-                        )
-                      else
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Icon(tool.$4, color: color, size: 24),
-                        ),
-                      const Spacer(),
-                      Text(
-                        tool.$2,
-                        style: const TextStyle(
+                  const Spacer(),
+                  Text(
+                    tool.$2,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                           height: 1.2,
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        tool.$3,
-                        style: const TextStyle(
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    tool.$3,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,
                           fontSize: 12,
                           height: 1.3,
                         ),
-                      ),
-                    ],
                   ),
-                ),
+                ],
               ),
             );
           },

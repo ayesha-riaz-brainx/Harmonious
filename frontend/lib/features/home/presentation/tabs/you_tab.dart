@@ -1,15 +1,15 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
 
 import 'package:slot_1_tasks/core/constants/app_routes.dart';
 import 'package:slot_1_tasks/core/services/auth_service.dart';
 import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
+import 'package:slot_1_tasks/features/home/presentation/pages/bmi_assessment_page.dart';
 import 'package:slot_1_tasks/features/onboarding/data/onboarding_options.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_background.dart';
+import 'package:slot_1_tasks/shared/widgets/harmonious_ui.dart';
 
 class YouTab extends StatefulWidget {
   const YouTab({super.key});
@@ -138,20 +138,6 @@ class _YouTabState extends State<YouTab> {
         decoration: InputDecoration(labelText: label),
       ),
     );
-  }
-
-  Future<void> _changePhoto() async {
-    final image = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 320,
-      maxHeight: 320,
-      imageQuality: 55,
-    );
-    if (image == null) return;
-    final bytes = await image.readAsBytes();
-    await _save({
-      'settings': {'profile_photo_base64': base64Encode(bytes)},
-    });
   }
 
   Future<void> _editGoals() async {
@@ -341,107 +327,109 @@ class _YouTabState extends State<YouTab> {
     final name = _profile['display_name']?.toString() ??
         _profile['full_name']?.toString() ??
         'Friend';
-    final photo = _settings['profile_photo_base64']?.toString();
 
     return HarmoniousBackground(
       child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-          children: [
-            const Row(
-              children: [
-                Icon(
-                  Icons.person_rounded,
-                  color: AppColors.lavenderBright,
-                  size: 27,
-                ),
-                SizedBox(width: 10),
-                Text(
-                  'You',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
-                ),
-              ],
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: _load,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              HarmoniousSpacing.screenHorizontal,
+              16,
+              HarmoniousSpacing.screenHorizontal,
+              32,
             ),
-            const SizedBox(height: 18),
-            _profileCard(name, photo),
-            const SizedBox(height: 18),
-            _section(
-              title: 'Goals',
-              icon: Icons.flag_rounded,
-              color: AppColors.amber,
-              subtitle: _goals.isEmpty ? 'No current goals' : _goals.join(' · '),
-              onTap: _editGoals,
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
             ),
-            _section(
-              title: 'Health Information',
-              icon: Icons.health_and_safety_rounded,
-              color: AppColors.coral,
-              subtitle: 'History, conditions, medications & documents',
-              onTap: _editHealth,
-            ),
-            _settingsSection(),
-            _section(
-              title: 'Privacy & Data Export',
-              icon: Icons.privacy_tip_rounded,
-              color: AppColors.sky,
-              subtitle: 'Copy a complete export of your Harmonious data',
-              onTap: _export,
-            ),
-            _section(
-              title: 'Subscription',
-              icon: Icons.workspace_premium_rounded,
-              color: AppColors.lavender,
-              subtitle: 'Free plan · Manage subscription',
-              onTap: () => _toast('Subscription management coming soon.'),
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              height: 50,
-              child: OutlinedButton.icon(
-                onPressed: _busy ? null : _logout,
-                icon: const Icon(Icons.logout_rounded),
-                label: const Text('Log out'),
+            children: [
+              const HarmoniousPageHeader(
+                icon: Icons.person_rounded,
+                title: 'You',
+                subtitle: 'Profile, goals, and app settings',
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              _profileCard(name),
+              const HarmoniousSectionDivider(),
+              const SizedBox(height: 8),
+              _section(
+                title: 'BMI assessment',
+                icon: Icons.monitor_weight_outlined,
+                color: AppColors.aqua,
+                subtitle: 'Age, height & weight → WHO-style BMI (no AI)',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const BmiAssessmentPage(),
+                    ),
+                  );
+                },
+              ),
+              _section(
+                title: 'Goals',
+                icon: Icons.flag_rounded,
+                color: AppColors.amber,
+                subtitle:
+                    _goals.isEmpty ? 'No current goals' : _goals.join(' · '),
+                onTap: _editGoals,
+              ),
+              _section(
+                title: 'Health information',
+                icon: Icons.health_and_safety_rounded,
+                color: AppColors.coral,
+                subtitle: 'History, conditions, medications & documents',
+                onTap: _editHealth,
+              ),
+              const HarmoniousSectionDivider(),
+              const SizedBox(height: 8),
+              _settingsSection(),
+              _section(
+                title: 'Privacy & data export',
+                icon: Icons.privacy_tip_rounded,
+                color: AppColors.sky,
+                subtitle: 'Copy a complete export of your Harmonious data',
+                onTap: _export,
+              ),
+              _section(
+                title: 'Subscription',
+                icon: Icons.workspace_premium_rounded,
+                color: AppColors.secondary,
+                subtitle: 'Free plan · Manage subscription',
+                onTap: () => _toast('Subscription management coming soon.'),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: HarmoniousSpacing.minTapTarget,
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : _logout,
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('Log out'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _profileCard(String name, String? photo) {
-    return Container(
+  Widget _profileCard(String name) {
+    return HarmoniousCard(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.lavender.withValues(alpha: 0.18),
-            AppColors.surface,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.surfaceBorder),
-      ),
+      accentColor: AppColors.primary,
       child: Row(
         children: [
-          GestureDetector(
-            onTap: _changePhoto,
-            child: CircleAvatar(
-              radius: 34,
-              backgroundColor: AppColors.lavender.withValues(alpha: 0.2),
-              backgroundImage: photo == null
-                  ? null
-                  : MemoryImage(base64Decode(photo)) as ImageProvider,
-              child: photo == null
-                  ? Text(
-                      name.isEmpty ? 'Y' : name[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: AppColors.lavenderBright,
-                        fontSize: 25,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )
-                  : null,
+          CircleAvatar(
+            radius: 34,
+            backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+            child: Text(
+              name.isEmpty ? 'Y' : name[0].toUpperCase(),
+              style: const TextStyle(
+                color: AppColors.primaryBright,
+                fontSize: 25,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           const SizedBox(width: 14),
@@ -463,18 +451,18 @@ class _YouTabState extends State<YouTab> {
                   '${_profile['weight'] ?? '—'} ${_profile['weight_unit'] ?? 'kg'}',
                   style: const TextStyle(color: AppColors.textSecondary),
                 ),
-                TextButton(
-                  onPressed: _changePhoto,
-                  child: const Text('Change photo'),
-                ),
               ],
             ),
           ),
           IconButton(
             onPressed: _editProfile,
+            constraints: const BoxConstraints(
+              minWidth: HarmoniousSpacing.minTapTarget,
+              minHeight: HarmoniousSpacing.minTapTarget,
+            ),
             icon: const Icon(
               Icons.edit_rounded,
-              color: AppColors.lavenderBright,
+              color: AppColors.primaryBright,
             ),
           ),
         ],
@@ -483,14 +471,11 @@ class _YouTabState extends State<YouTab> {
   }
 
   Widget _settingsSection() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.surfaceBorder),
-      ),
-      child: ExpansionTile(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: HarmoniousCard(
+        padding: EdgeInsets.zero,
+        child: ExpansionTile(
         leading: const Icon(
           Icons.tune_rounded,
           color: AppColors.aqua,
@@ -537,6 +522,7 @@ class _YouTabState extends State<YouTab> {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -567,55 +553,48 @@ class _YouTabState extends State<YouTab> {
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
+      child: HarmoniousCard(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.surfaceBorder),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textMuted,
+                          fontSize: 12,
+                        ),
+                  ),
+                ],
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.textMuted,
-              ),
-            ],
-          ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textMuted,
+            ),
+          ],
         ),
       ),
     );

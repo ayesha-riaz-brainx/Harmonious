@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
+import 'package:slot_1_tasks/features/home/presentation/pages/entertainment_recommendations_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/breathing_exercise_modal.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/grounding_exercise_modal.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/pause_exercise_modal.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_background.dart';
+import 'package:slot_1_tasks/shared/widgets/harmonious_ui.dart';
 
 class _MantraItem {
   const _MantraItem(this.quote, this.detail);
@@ -14,10 +16,9 @@ class _MantraItem {
 }
 
 class _FeelingItem {
-  const _FeelingItem(this.label, this.message, this.color);
+  const _FeelingItem(this.label, this.message);
   final String label;
   final String message;
-  final Color color;
 }
 
 class _PracticeItem {
@@ -26,14 +27,12 @@ class _PracticeItem {
     required this.subtitle,
     required this.icon,
     required this.kind,
-    required this.color,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
   final String kind;
-  final Color color;
 }
 
 const _kMantras = [
@@ -72,32 +71,12 @@ const _kMantras = [
 ];
 
 const _kFeelings = [
-  _FeelingItem('Stressed', 'I am feeling stressed today.', AppColors.coral),
-  _FeelingItem(
-    'Anxious',
-    'I feel anxious and overwhelmed.',
-    AppColors.lavenderBright,
-  ),
-  _FeelingItem(
-    'Overwhelmed',
-    'Everything feels like too much right now.',
-    AppColors.amber,
-  ),
-  _FeelingItem(
-    'Low energy',
-    'I feel low and unmotivated.',
-    AppColors.sky,
-  ),
-  _FeelingItem(
-    'Can’t sleep',
-    'My mind won’t settle and I can’t sleep.',
-    AppColors.mint,
-  ),
-  _FeelingItem(
-    'Lonely',
-    'I feel alone and disconnected.',
-    AppColors.lavender,
-  ),
+  _FeelingItem('Stressed', 'I am feeling stressed today.'),
+  _FeelingItem('Anxious', 'I feel anxious and overwhelmed.'),
+  _FeelingItem('Overwhelmed', 'Everything feels like too much right now.'),
+  _FeelingItem('Low energy', 'I feel low and unmotivated.'),
+  _FeelingItem('Can’t sleep', 'My mind won’t settle and I can’t sleep.'),
+  _FeelingItem('Lonely', 'I feel alone and disconnected.'),
 ];
 
 const _kPractices = [
@@ -106,21 +85,18 @@ const _kPractices = [
     subtitle: '4–4–6 guided breath',
     icon: Icons.air_rounded,
     kind: 'breathing',
-    color: AppColors.sky,
   ),
   _PracticeItem(
     title: 'Grounding',
     subtitle: '5-4-3-2-1 senses',
     icon: Icons.spa_rounded,
     kind: 'grounding',
-    color: AppColors.mint,
   ),
   _PracticeItem(
     title: 'Pause',
     subtitle: '2 quiet minutes',
     icon: Icons.self_improvement_rounded,
     kind: 'pause',
-    color: AppColors.lavenderBright,
   ),
 ];
 
@@ -241,27 +217,15 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
           title: const Text('Emotional support'),
         ),
         body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 36),
+          padding: const EdgeInsets.fromLTRB(
+            HarmoniousSpacing.screenHorizontal,
+            4,
+            HarmoniousSpacing.screenHorizontal,
+            36,
+          ),
           children: [
-            // Hero
-            Container(
-              width: double.infinity,
+            HarmoniousCard(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.coral.withValues(alpha: 0.22),
-                    AppColors.lavender.withValues(alpha: 0.16),
-                    AppColors.surface,
-                  ],
-                ),
-                border: Border.all(
-                  color: AppColors.coral.withValues(alpha: 0.28),
-                ),
-              ),
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -286,31 +250,64 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
               ),
             ),
 
+            const SizedBox(height: 14),
+            HarmoniousCard(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              accentColor: AppColors.cyanAccent,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const EntertainmentRecommendationsPage(
+                      initialMood: 'stressed',
+                    ),
+                  ),
+                );
+              },
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.movie_filter_outlined,
+                    color: AppColors.cyanAccent.withValues(alpha: 0.95),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Want something to watch?',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Optional gentle picks when you need a distraction.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textSecondary,
+                                height: 1.35,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textMuted.withValues(alpha: 0.8),
+                  ),
+                ],
+              ),
+            ),
+
             // Mantra of the day
             const SizedBox(height: 22),
-            const _SectionLabel('Mantra', color: AppColors.amber),
+            const HarmoniousSectionHeader(title: 'Mantra'),
             const SizedBox(height: 12),
-            InkWell(
+            HarmoniousCard(
+              padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
               onTap: _nextMantra,
-              borderRadius: BorderRadius.circular(20),
-              child: Ink(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.amber.withValues(alpha: 0.18),
-                      AppColors.surface,
-                    ],
-                  ),
-                  border: Border.all(
-                    color: AppColors.amber.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Column(
+              child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
@@ -321,13 +318,16 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.amber.withValues(alpha: 0.18),
+                            color: AppColors.primary.withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(99),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.35),
+                            ),
                           ),
                           child: const Text(
                             'TODAY',
                             style: TextStyle(
-                              color: AppColors.amber,
+                              color: AppColors.primary,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.0,
@@ -365,7 +365,6 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
                     ),
                   ],
                 ),
-              ),
             ),
 
             // More mantras strip
@@ -389,12 +388,12 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16),
                         color: selected
-                            ? AppColors.lavender.withValues(alpha: 0.16)
-                            : AppColors.surface,
+                            ? AppColors.primary.withValues(alpha: 0.12)
+                            : AppColors.cardSurface,
                         border: Border.all(
                           color: selected
-                              ? AppColors.lavenderBright
-                              : AppColors.surfaceBorder,
+                              ? AppColors.primary.withValues(alpha: 0.5)
+                              : AppColors.cardBorder.withValues(alpha: 0.85),
                         ),
                       ),
                       child: Text(
@@ -418,7 +417,7 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
 
             // Feelings
             const SizedBox(height: 26),
-            const _SectionLabel('How are you feeling?', color: AppColors.coral),
+            const _SectionLabel('How are you feeling?'),
             const SizedBox(height: 12),
             Wrap(
               spacing: 10,
@@ -427,7 +426,6 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
                 for (final feeling in _kFeelings)
                   _FeelingChip(
                     label: feeling.label,
-                    color: feeling.color,
                     enabled: !_busy,
                     onTap: () => _send(feeling.message),
                   ),
@@ -436,7 +434,7 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
 
             // Practices
             const SizedBox(height: 26),
-            const _SectionLabel('Practices', color: AppColors.mint),
+            const _SectionLabel('Practices'),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -447,7 +445,6 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
                       title: _kPractices[i].title,
                       subtitle: _kPractices[i].subtitle,
                       icon: _kPractices[i].icon,
-                      color: _kPractices[i].color,
                       enabled: !_busy,
                       onTap: () => _openExercise(_kPractices[i].kind),
                     ),
@@ -458,15 +455,15 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
 
             // Share
             const SizedBox(height: 26),
-            const _SectionLabel('Talk it out', color: AppColors.lavenderBright),
+            const _SectionLabel('Talk it out'),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: AppColors.cardSurface,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: AppColors.lavender.withValues(alpha: 0.3),
+                  color: AppColors.cardBorder.withValues(alpha: 0.85),
                 ),
               ),
               child: Column(
@@ -489,8 +486,8 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
                     child: FilledButton(
                       onPressed: _busy ? null : () => _send(),
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.coral,
-                        foregroundColor: Colors.white,
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.onPrimaryButton,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -502,7 +499,7 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: AppColors.onPrimaryButton,
                               ),
                             )
                           : const Text(
@@ -533,33 +530,19 @@ class _EmotionalSupportPageState extends State<EmotionalSupportPage> {
 }
 
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text, {required this.color});
+  const _SectionLabel(this.text);
   final String text;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(3),
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
+            color: AppColors.textPrimary,
           ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          text.toUpperCase(),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.1,
-            color: color,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -567,13 +550,11 @@ class _SectionLabel extends StatelessWidget {
 class _FeelingChip extends StatelessWidget {
   const _FeelingChip({
     required this.label,
-    required this.color,
     required this.enabled,
     required this.onTap,
   });
 
   final String label;
-  final Color color;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -588,20 +569,17 @@ class _FeelingChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            gradient: LinearGradient(
-              colors: [
-                color.withValues(alpha: 0.18),
-                AppColors.surface,
-              ],
+            color: AppColors.cardSurface,
+            border: Border.all(
+              color: AppColors.cardBorder.withValues(alpha: 0.85),
             ),
-            border: Border.all(color: color.withValues(alpha: 0.4)),
           ),
           child: Text(
             label,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
               fontSize: 13,
-              color: color,
+              color: AppColors.textPrimary,
             ),
           ),
         ),
@@ -615,7 +593,6 @@ class _PracticeCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
-    required this.color,
     required this.enabled,
     required this.onTap,
   });
@@ -623,7 +600,6 @@ class _PracticeCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
-  final Color color;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -639,15 +615,10 @@ class _PracticeCard extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                color.withValues(alpha: 0.2),
-                AppColors.surface,
-              ],
+            color: AppColors.cardSurface,
+            border: Border.all(
+              color: AppColors.cardBorder.withValues(alpha: 0.85),
             ),
-            border: Border.all(color: color.withValues(alpha: 0.4)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -656,10 +627,10 @@ class _PracticeCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.16),
+                  color: AppColors.primary.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(icon, color: AppColors.primary, size: 20),
               ),
               const Spacer(),
               Text(
@@ -709,15 +680,10 @@ class _SupportResult extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.mint.withValues(alpha: 0.14),
-            AppColors.surface,
-          ],
+        color: AppColors.cardSurface,
+        border: Border.all(
+          color: AppColors.cardBorder.withValues(alpha: 0.85),
         ),
-        border: Border.all(color: AppColors.mint.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -728,12 +694,12 @@ class _SupportResult extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: AppColors.mint.withValues(alpha: 0.18),
+                  color: AppColors.primary.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: const Icon(
                   Icons.favorite_rounded,
-                  color: AppColors.mint,
+                  color: AppColors.primary,
                   size: 18,
                 ),
               ),
@@ -768,7 +734,7 @@ class _SupportResult extends StatelessWidget {
                         width: 6,
                         height: 6,
                         decoration: const BoxDecoration(
-                          color: AppColors.mint,
+                          color: AppColors.primary,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -793,8 +759,10 @@ class _SupportResult extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: onPractice,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.mint,
-                side: BorderSide(color: AppColors.mint.withValues(alpha: 0.55)),
+                foregroundColor: AppColors.primary,
+                side: BorderSide(
+                  color: AppColors.primary.withValues(alpha: 0.45),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),

@@ -11,6 +11,9 @@ class AiProfile {
     required this.workoutPlan,
     required this.focusAreas,
     required this.message,
+    this.stepsGoal = 8000,
+    this.exerciseGoalMinutes = 30,
+    this.habitTemplates = const ['water', 'breakfast', 'workout', 'journal', 'sleep'],
   });
 
   final String primaryGoal;
@@ -21,6 +24,9 @@ class AiProfile {
   final String workoutPlan;
   final List<String> focusAreas;
   final String message;
+  final int stepsGoal;
+  final int exerciseGoalMinutes;
+  final List<String> habitTemplates;
 
   Map<String, dynamic> toJson() => {
         'primary_goal': primaryGoal,
@@ -31,6 +37,9 @@ class AiProfile {
         'workout_plan': workoutPlan,
         'focus_areas': focusAreas,
         'message': message,
+        'steps_goal': stepsGoal,
+        'exercise_goal_minutes': exerciseGoalMinutes,
+        'habit_templates': habitTemplates,
       };
 }
 
@@ -49,6 +58,11 @@ class AiProfileBuilder {
         (draft.wantsBetterSleep ? '8' : _defaultSleep(draft.sleepHours));
     final workout = _workoutPlan(draft);
     final focus = _focusAreas(draft);
+    final stepsGoal = _stepsGoal(draft);
+    final exerciseMinutes = _exerciseGoalMinutes(draft);
+    final habits = draft.selectedHabits.isNotEmpty
+        ? List<String>.from(draft.selectedHabits)
+        : const ['water', 'breakfast', 'workout', 'journal', 'sleep'];
 
     return AiProfile(
       primaryGoal: primaryLabel,
@@ -60,6 +74,9 @@ class AiProfileBuilder {
       focusAreas: focus,
       message:
           "Great! Your AI companion has created your initial plan. As you use the app, I'll learn from your habits and make my recommendations smarter.",
+      stepsGoal: stepsGoal,
+      exerciseGoalMinutes: exerciseMinutes,
+      habitTemplates: habits,
     );
   }
 
@@ -118,6 +135,32 @@ class AiProfileBuilder {
       'Under 5' || '5–6' => '7–8',
       '6–7' => '8',
       _ => '8',
+    };
+  }
+
+  int _stepsGoal(OnboardingDraft draft) {
+    return switch (draft.activityLevel) {
+      'Mostly Sitting' => 6000,
+      'Lightly Active' => 8000,
+      'Moderately Active' => 10000,
+      'Very Active' => 12000,
+      _ => 8000,
+    };
+  }
+
+  int _exerciseGoalMinutes(OnboardingDraft draft) {
+    return switch (draft.exerciseFrequency) {
+      'Rarely' => 20,
+      '1–2 days / week' => 25,
+      '3–4 days / week' => 30,
+      '5+ days / week' => 45,
+      _ => switch (draft.activityLevel) {
+          'Mostly Sitting' => 20,
+          'Lightly Active' => 25,
+          'Moderately Active' => 30,
+          'Very Active' => 45,
+          _ => 30,
+        },
     };
   }
 

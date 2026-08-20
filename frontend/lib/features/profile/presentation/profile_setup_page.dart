@@ -150,7 +150,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                           TextSpan(
                             text: ' *',
                             style: TextStyle(
-                              color: AppColors.lavenderBright,
+                              color: AppColors.primary,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -322,17 +322,17 @@ class _UnitChip extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: selected
-              ? AppColors.lavender.withValues(alpha: 0.18)
+              ? AppColors.primary.withValues(alpha: 0.18)
               : Colors.transparent,
           border: Border.all(
-            color: selected ? AppColors.lavender : AppColors.surfaceBorder,
+            color: selected ? AppColors.primary : AppColors.surfaceBorder,
           ),
         ),
         child: Text(
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: selected ? AppColors.lavenderBright : AppColors.textSecondary,
+            color: selected ? AppColors.primaryBright : AppColors.textSecondary,
             fontWeight: FontWeight.w600,
           ),
         ),

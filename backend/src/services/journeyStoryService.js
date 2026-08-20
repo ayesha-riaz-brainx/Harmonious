@@ -147,9 +147,30 @@ function eventMeta(type, payload = {}) {
   }
 }
 
+function isMeaningfulLog(log) {
+  if (!log) return false;
+  return (
+    Number(log.water_liters || 0) > 0 ||
+    Number(log.calories || 0) > 0 ||
+    Number(log.exercise_minutes || 0) > 0 ||
+    Number(log.sleep_hours || 0) > 0 ||
+    num(log.weight) != null ||
+    Boolean(log.mood && String(log.mood).trim()) ||
+    (Array.isArray(log.tasks) && log.tasks.some((task) => task?.done))
+  );
+}
+
+function meaningfulLogs(logs) {
+  return (Array.isArray(logs) ? logs : []).filter(isMeaningfulLog);
+}
+
 function consecutiveLoggingDays(logs) {
   const days = [
-    ...new Set(logs.map((l) => dayKey(l.log_date)).filter(Boolean)),
+    ...new Set(
+      meaningfulLogs(logs)
+        .map((l) => dayKey(l.log_date))
+        .filter(Boolean),
+    ),
   ].sort();
   if (!days.length) return 0;
   let best = 1;
@@ -169,7 +190,11 @@ function consecutiveLoggingDays(logs) {
 }
 
 function currentStreak(logs) {
-  const days = new Set(logs.map((l) => dayKey(l.log_date)).filter(Boolean));
+  const days = new Set(
+    meaningfulLogs(logs)
+      .map((l) => dayKey(l.log_date))
+      .filter(Boolean),
+  );
   if (!days.size) return 0;
   let streak = 0;
   const cursor = new Date();
@@ -295,8 +320,11 @@ function buildMilestones({ captures, logs }) {
   const weights = logs.map((l) => num(l.weight)).filter((v) => v != null);
   const lostKg =
     weights.length >= 2 ? Math.max(0, weights[0] - weights[weights.length - 1]) : 0;
-  const activeDays = new Set(logs.map((l) => dayKey(l.log_date)).filter(Boolean))
-    .size;
+  const activeDays = new Set(
+    meaningfulLogs(logs)
+      .map((l) => dayKey(l.log_date))
+      .filter(Boolean),
+  ).size;
 
   const defs = [
     {
@@ -358,10 +386,11 @@ function buildBeforeVsNow({ profile, logs }) {
   const weights = logs
     .map((l) => ({ at: l.log_date, w: num(l.weight) }))
     .filter((x) => x.w != null);
-  const startWeight = weights[0]?.w ?? num(profile?.weight);
-  const nowWeight =
-    (weights.length ? weights[weights.length - 1].w : null) ??
-    num(profile?.weight);
+  if (weights.length < 2) {
+    return comparisons;
+  }
+  const startWeight = weights[0].w;
+  const nowWeight = weights[weights.length - 1].w;
   if (startWeight != null && nowWeight != null) {
     comparisons.push({
       id: 'weight',
@@ -558,7 +587,84 @@ function enrichTimeline(captures) {
   });
 }
 
-function buildJourneyStory({ profile, captures = [], logs = [] }) {
+function todayUtcDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function buildTodayReview({ logs = [], captures = [], todayDate } = {}) {
+  const today = todayDate || todayUtcDate();
+  const log =
+    logs.find((row) => dayKey(row.log_date) === today) ||
+    logs.find((row) => String(row.log_date).slice(0, 10) === today) ||
+    {};
+
+  const todayCaptures = (captures || []).filter(
+    (entry) => dayKey(entry.captured_at) === today,
+  );
+
+  const meals = todayCaptures.filter((c) => c.type === 'meal');
+  const mealCount = meals.length;
+  const calories = Math.round(Number(log.calories || 0));
+  const waterLiters = Number(log.water_liters || 0);
+  const glasses = Math.max(0, Math.round(waterLiters / 0.25));
+  const exerciseMinutes = Math.round(Number(log.exercise_minutes || 0));
+  const mood = log.mood ? String(log.mood) : null;
+  const sleepHours = Number(log.sleep_hours || 0);
+  const sleep = sleepHours > 0 ? sleepHours : null;
+  const weight = num(log.weight);
+
+  const hasData =
+    mealCount > 0 ||
+    waterLiters > 0 ||
+    exerciseMinutes > 0 ||
+    Boolean(mood) ||
+    sleep != null ||
+    weight != null;
+
+  return {
+    date: today,
+    has_data: hasData,
+    meals: {
+      count: mealCount,
+      calories,
+      label:
+        mealCount === 0
+          ? calories > 0
+            ? `${calories} kcal logged`
+            : 'No meals logged'
+          : mealCount === 1
+            ? `1 meal · ${calories} kcal`
+            : `${mealCount} meals · ${calories} kcal`,
+    },
+    water: {
+      liters: Number(waterLiters.toFixed(2)),
+      glasses,
+      label:
+        waterLiters <= 0
+          ? 'No water logged'
+          : `${glasses} glass${glasses === 1 ? '' : 'es'} · ${waterLiters.toFixed(1)} L`,
+    },
+    activity: {
+      minutes: exerciseMinutes,
+      label:
+        exerciseMinutes <= 0
+          ? 'No activity logged'
+          : `${exerciseMinutes} min exercise`,
+    },
+    mood: mood
+      ? { value: mood, label: mood }
+      : { value: null, label: 'Not set' },
+    sleep: sleep
+      ? {
+          hours: sleep,
+          label: `${sleep % 1 === 0 ? sleep.toFixed(0) : sleep.toFixed(1)} h sleep`,
+        }
+      : { hours: null, label: 'Not logged' },
+    weight: weight != null ? { kg: weight, label: `${weight.toFixed(1)} kg` } : null,
+  };
+}
+
+function buildJourneyStory({ profile, captures = [], logs = [], todayDate } = {}) {
   const waterGoal =
     num(profile?.ai_profile?.water_goal_liters) ||
     num(profile?.water_goal_liters) ||
@@ -585,6 +691,11 @@ function buildJourneyStory({ profile, captures = [], logs = [] }) {
       waterGoal,
     }),
     timeline: enrichTimeline(orderedCaptures),
+    today_review: buildTodayReview({
+      logs: orderedLogs,
+      captures: orderedCaptures,
+      todayDate,
+    }),
     milestones,
     before_vs_now: buildBeforeVsNow({ profile, logs: orderedLogs }),
     memories: buildMemories({
@@ -593,8 +704,11 @@ function buildJourneyStory({ profile, captures = [], logs = [] }) {
     }),
     next_milestone: nextMilestone,
     stats: {
-      logging_days: new Set(orderedLogs.map((l) => dayKey(l.log_date)).filter(Boolean))
-        .size,
+      logging_days: new Set(
+        meaningfulLogs(orderedLogs)
+          .map((l) => dayKey(l.log_date))
+          .filter(Boolean),
+      ).size,
       current_streak: currentStreak(orderedLogs),
       best_streak: consecutiveLoggingDays(orderedLogs),
       capture_count: orderedCaptures.length,
@@ -604,5 +718,6 @@ function buildJourneyStory({ profile, captures = [], logs = [] }) {
 
 module.exports = {
   buildJourneyStory,
+  buildTodayReview,
   eventMeta,
 };

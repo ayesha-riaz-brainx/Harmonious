@@ -16,8 +16,10 @@ class AppTheme {
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.background,
       colorScheme: const ColorScheme.dark(
-        primary: AppColors.lavender,
-        onPrimary: AppColors.textPrimary,
+        primary: AppColors.primary,
+        onPrimary: AppColors.onPrimaryButton,
+        secondary: AppColors.secondary,
+        onSecondary: AppColors.textPrimary,
         surface: AppColors.surface,
         onSurface: AppColors.textPrimary,
       ),
@@ -25,13 +27,13 @@ class AppTheme {
         headlineLarge: GoogleFonts.inter(
           fontSize: 34,
           fontWeight: FontWeight.w700,
-          color: AppColors.lavender,
+          color: AppColors.textPrimary,
           height: 1.15,
         ),
         headlineMedium: GoogleFonts.inter(
           fontSize: 28,
           fontWeight: FontWeight.w700,
-          color: AppColors.lavender,
+          color: AppColors.textPrimary,
           height: 1.2,
         ),
         titleLarge: GoogleFonts.inter(
@@ -53,6 +55,20 @@ class AppTheme {
           color: AppColors.textMuted,
         ),
       ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primary,
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.primary.withValues(alpha: 0.18),
+          foregroundColor: AppColors.primary,
+        ),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.primary,
+      ),
       inputDecorationTheme: const InputDecorationTheme(
         filled: false,
         border: InputBorder.none,
@@ -69,10 +85,26 @@ class AppTheme {
       listTileTheme: const ListTileThemeData(
         tileColor: AppColors.surface,
         textColor: AppColors.textPrimary,
-        iconColor: AppColors.lavenderBright,
-        selectedTileColor: Color(0x33B8A8FF),
+        iconColor: AppColors.primary,
+        selectedTileColor: Color(0x3300F2FE),
       ),
       splashFactory: InkRipple.splashFactory,
+    );
+  }
+
+  /// Monospaced tabular figures for dashboard metrics (glasses, kcal, kg, etc.).
+  static TextStyle metricMono({
+    double fontSize = 20,
+    Color? color,
+    FontWeight fontWeight = FontWeight.w600,
+    double? height,
+  }) {
+    return GoogleFonts.jetBrainsMono(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color ?? AppColors.textPrimary,
+      height: height,
+      fontFeatures: const [FontFeature.tabularFigures()],
     );
   }
 }

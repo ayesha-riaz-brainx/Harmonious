@@ -1,4 +1,4 @@
-package com.example.slot_1_tasks
+package com.app.harmonious
 
 import io.flutter.embedding.android.FlutterActivity
 

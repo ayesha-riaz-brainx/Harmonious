@@ -21,6 +21,11 @@ const {
   updateSettings,
   exportData,
 } = require('../controllers/settingsController');
+const { search: searchFoods } = require('../controllers/foodController');
+const {
+  listGenres: listEntertainmentGenres,
+  recommendations: entertainmentRecommendations,
+} = require('../controllers/entertainmentController');
 
 const router = express.Router();
 
@@ -32,6 +37,11 @@ router.delete('/ai/memory', requireUser, clearMemory);
 
 router.get('/captures', requireUser, listCaptures);
 router.post('/captures', requireUser, capture);
+
+router.get('/foods/search', requireUser, searchFoods);
+
+router.get('/entertainment/genres', requireUser, listEntertainmentGenres);
+router.get('/entertainment/recommendations', requireUser, entertainmentRecommendations);
 
 router.get('/journey', requireUser, getJourney);
 router.post('/journey/review', requireUser, createReview);

@@ -163,7 +163,7 @@ class _LoginPageState extends State<LoginPage> {
                       },
                       child: const Text(
                         AppStrings.forgotPassword,
-                        style: TextStyle(color: AppColors.lavenderBright),
+                        style: TextStyle(color: AppColors.primary),
                       ),
                     ),
                   ),
@@ -183,10 +183,10 @@ class _LoginPageState extends State<LoginPage> {
                         const TextSpan(text: AppStrings.noAccount),
                         TextSpan(
                           text: AppStrings.signUp,
-                          style: const TextStyle(
-                            color: AppColors.lavenderBright,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
                           recognizer: TapGestureRecognizer()
                             ..onTap = () {
                               Navigator.of(context)

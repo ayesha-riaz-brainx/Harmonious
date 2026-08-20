@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_background.dart';
+import 'package:slot_1_tasks/shared/widgets/harmonious_ui.dart';
 
 /// Meaningful capture types — not every water sip / meal.
 const _momentTypes = {
@@ -39,23 +40,13 @@ class _HealthJourneyPageState extends State<HealthJourneyPage> {
   List<Map<String, dynamic>> _story = [];
   List<Map<String, dynamic>> _beforeVsNow = [];
   Map<String, dynamic>? _nextMilestone;
-  Map<String, dynamic>? _stats;
   Map<String, dynamic>? _analysis;
 
   @override
   void initState() {
     super.initState();
-    _bootstrap();
-  }
-
-  Future<void> _bootstrap() async {
-    await _load();
-    if (!mounted) return;
-    final days = (_stats?['logging_days'] as num?)?.toInt() ?? 0;
-    final captures = (_stats?['capture_count'] as num?)?.toInt() ?? 0;
-    if (days >= 3 || captures >= 5) {
-      await _analyze(silent: true);
-    }
+    // Rules-only on open — AI reflection is explicit via the app bar action.
+    _load();
   }
 
   Future<void> _load() async {
@@ -72,9 +63,6 @@ class _HealthJourneyPageState extends State<HealthJourneyPage> {
         _beforeVsNow = _asMaps(data['before_vs_now']);
         _nextMilestone = data['next_milestone'] is Map
             ? Map<String, dynamic>.from(data['next_milestone'] as Map)
-            : null;
-        _stats = data['stats'] is Map
-            ? Map<String, dynamic>.from(data['stats'] as Map)
             : null;
         _loading = false;
       });
@@ -394,29 +382,20 @@ class _HealthJourneyPageState extends State<HealthJourneyPage> {
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
-                color: AppColors.lavender,
-                onRefresh: () async {
-                  await _load();
-                  await _analyze(silent: true);
-                },
+                color: AppColors.primary,
+                onRefresh: _load,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(22, 4, 22, 48),
+                  padding: const EdgeInsets.fromLTRB(
+                    HarmoniousSpacing.screenHorizontal,
+                    4,
+                    HarmoniousSpacing.screenHorizontal,
+                    48,
+                  ),
                   children: [
-                    Text(
-                      'How far you’ve come',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.4,
-                          ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'A quiet look at your progress — not another dashboard.',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        height: 1.4,
-                        fontSize: 14,
-                      ),
+                    const HarmoniousSectionHeader(
+                      title: 'How far you’ve come',
+                      subtitle:
+                          'A quiet look at your progress — not another dashboard.',
                     ),
 
                     // —— Before → Now
@@ -478,7 +457,8 @@ class _HealthJourneyPageState extends State<HealthJourneyPage> {
                       const _Hint('Writing your reflection…')
                     else if (reflection.isEmpty)
                       const _Hint(
-                        'Keep logging for a few days — your coach note will appear here.',
+                        'Tap the sparkle icon above when you want an AI coach '
+                        'reflection. Trends and chapters below are free.',
                       )
                     else
                       _ReflectionPanel(

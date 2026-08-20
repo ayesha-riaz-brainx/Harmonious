@@ -21,7 +21,7 @@ class HarmoniousGradientButton extends StatelessWidget {
 
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 48,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
@@ -39,7 +39,7 @@ class HarmoniousGradientButton extends StatelessWidget {
           boxShadow: enabled
               ? [
                   BoxShadow(
-                    color: AppColors.lavender.withValues(alpha: 0.18),
+                    color: AppColors.primary.withValues(alpha: 0.18),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                   ),
@@ -64,9 +64,9 @@ class HarmoniousGradientButton extends StatelessWidget {
                   : Text(
                       label,
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: AppColors.onPrimaryButton,
                       ),
                     ),
             ),

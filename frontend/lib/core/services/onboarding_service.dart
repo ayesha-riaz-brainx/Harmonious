@@ -75,6 +75,14 @@ class OnboardingService {
             .map((e) => e.toString())
             .toList(),
         message: (profile['message'] as String?) ?? seed.message,
+        stepsGoal: (profile['steps_goal'] as num?)?.toInt() ?? seed.stepsGoal,
+        exerciseGoalMinutes:
+            (profile['exercise_goal_minutes'] as num?)?.toInt() ??
+                seed.exerciseGoalMinutes,
+        habitTemplates:
+            ((profile['habit_templates'] as List?) ?? seed.habitTemplates)
+                .map((e) => e.toString())
+                .toList(),
       );
     } catch (_) {
       return seed;

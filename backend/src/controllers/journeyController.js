@@ -1,6 +1,7 @@
 const { getSupabaseAdmin } = require('../config/supabase');
 const { generateProgressReport } = require('../services/aiService');
 const { buildJourneyStory } = require('../services/journeyStoryService');
+const { resolveLogDate } = require('../services/homeService');
 
 async function getJourney(req, res, next) {
   try {
@@ -32,11 +33,17 @@ async function getJourney(req, res, next) {
     const profile = profileResult.data;
     const captures = capturesResult.data || [];
     const trends = logsResult.data || [];
-    const story = buildJourneyStory({ profile, captures, logs: trends });
+    const story = buildJourneyStory({
+      profile,
+      captures,
+      logs: trends,
+      todayDate: resolveLogDate(req),
+    });
 
     return res.json({
       profile,
       timeline: story.timeline,
+      today_review: story.today_review,
       trends,
       story: story.story,
       milestones: story.milestones,

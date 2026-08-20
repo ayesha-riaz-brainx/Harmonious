@@ -2,13 +2,17 @@ const { getSupabaseAdmin } = require('../config/supabase');
 const { hasAiKey } = require('../services/aiService');
 const {
   defaultTasks,
-  todayUtcDate,
+  resolveLogDate,
   buildHomePayload,
   tasksForCaptureType,
+  validateCapturePayload,
+  safeNum,
 } = require('../services/homeService');
 
-async function getWeeklyHistory(supabase, userId) {
-  const start = new Date();
+async function getWeeklyHistory(supabase, userId, anchorDate) {
+  const end = anchorDate || resolveLogDate();
+  const endAt = new Date(`${end}T12:00:00Z`);
+  const start = new Date(endAt);
   start.setUTCDate(start.getUTCDate() - 6);
   const { data, error } = await supabase
     .from('daily_logs')
@@ -17,12 +21,13 @@ async function getWeeklyHistory(supabase, userId) {
     )
     .eq('user_id', userId)
     .gte('log_date', start.toISOString().slice(0, 10))
+    .lte('log_date', end)
     .order('log_date', { ascending: true });
   if (error) throw error;
   return data || [];
 }
 
-async function loadHomeSnapshot(supabase, userId) {
+async function loadHomeSnapshot(supabase, userId, logDate) {
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
@@ -30,7 +35,7 @@ async function loadHomeSnapshot(supabase, userId) {
     .maybeSingle();
   if (profileError) throw profileError;
 
-  const date = todayUtcDate();
+  const date = logDate || resolveLogDate();
   const { data: log, error: logError } = await supabase
     .from('daily_logs')
     .select('*')
@@ -39,7 +44,7 @@ async function loadHomeSnapshot(supabase, userId) {
     .maybeSingle();
   if (logError) throw logError;
 
-  const weeklyHistory = await getWeeklyHistory(supabase, userId);
+  const weeklyHistory = await getWeeklyHistory(supabase, userId, date);
   const aiProfile = profile?.ai_profile || {};
 
   return {
@@ -60,10 +65,14 @@ async function capture(req, res, next) {
       'mood',
       'sleep',
       'journal',
-      'health_report',
     ];
     if (!allowed.includes(type)) {
       return res.status(400).json({ message: 'Invalid capture type.' });
+    }
+
+    const validationError = validateCapturePayload(type, payload);
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
     }
 
     const normalized = { ...payload };
@@ -99,7 +108,7 @@ async function capture(req, res, next) {
       .single();
     if (captureError) throw captureError;
 
-    const date = todayUtcDate();
+    const date = resolveLogDate(req);
     const { data: existing, error: readError } = await supabase
       .from('daily_logs')
       .select('*')
@@ -110,12 +119,13 @@ async function capture(req, res, next) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('ai_profile')
+      .select('ai_profile, onboarding_data')
       .eq('id', req.user.id)
       .maybeSingle();
 
     const baseTasks =
-      existing?.tasks || defaultTasks(profile?.ai_profile || {});
+      existing?.tasks ||
+      defaultTasks(profile?.ai_profile || {}, profile?.onboarding_data || {});
     const patch = {
       user_id: req.user.id,
       log_date: date,
@@ -123,38 +133,24 @@ async function capture(req, res, next) {
       tasks: tasksForCaptureType(baseTasks, type),
     };
 
-    // Refresh AI brief after meaningful logs (not every tiny water sip).
-    const invalidateBrief = ['meal', 'workout', 'mood', 'sleep', 'weight'].includes(
-      type,
-    );
-    if (type === 'water') {
-      const before = Number(existing?.water_liters || 0);
-      const after = before + Number(normalized.liters);
-      if (Math.floor(after / 0.25) > Math.floor(before / 0.25)) {
-        patch.ai_brief = {};
-        patch.ai_insights = [];
-      }
-    } else if (invalidateBrief) {
-      patch.ai_brief = {};
-      patch.ai_insights = [];
-    }
+    // Do not clear ai_brief on capture — Today uses rule-based briefs by
+    // default, and OpenAI regen is explicit via refreshAi only.
 
     if (type === 'water') {
       patch.water_liters =
-        Number(existing?.water_liters || 0) + Number(normalized.liters);
+        safeNum(existing?.water_liters, 0) + safeNum(normalized.liters, 0);
     }
     if (type === 'meal') {
       patch.calories =
-        Number(existing?.calories || 0) + Number(normalized.calories || 0);
+        Math.round(safeNum(existing?.calories, 0) + safeNum(normalized.calories, 0));
     }
     if (type === 'workout') {
       patch.exercise_minutes =
-        Number(existing?.exercise_minutes || 0) +
-        Number(normalized.minutes || 0);
+        Math.round(safeNum(existing?.exercise_minutes, 0) + safeNum(normalized.minutes, 0));
     }
-    if (type === 'weight') patch.weight = Number(normalized.weight);
-    if (type === 'mood') patch.mood = String(normalized.mood || '');
-    if (type === 'sleep') patch.sleep_hours = Number(normalized.hours || 0);
+    if (type === 'weight') patch.weight = safeNum(normalized.weight, 0, { min: 1, max: 500 });
+    if (type === 'mood') patch.mood = String(normalized.mood || '').trim();
+    if (type === 'sleep') patch.sleep_hours = safeNum(normalized.hours, 0, { min: 0, max: 24 });
 
     // Preserve other fields on upsert.
     if (existing) {
@@ -181,7 +177,7 @@ async function capture(req, res, next) {
       await supabase
         .from('profiles')
         .update({
-          weight: Number(normalized.weight),
+          weight: safeNum(normalized.weight, 0, { min: 1, max: 500 }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', req.user.id);
@@ -194,7 +190,7 @@ async function capture(req, res, next) {
           }).`
         : `${type.replace('_', ' ')} logged.`;
 
-    const home = await loadHomeSnapshot(supabase, req.user.id);
+    const home = await loadHomeSnapshot(supabase, req.user.id, date);
 
     return res.status(201).json({
       message,

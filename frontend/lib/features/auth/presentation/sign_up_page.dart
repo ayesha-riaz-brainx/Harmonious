@@ -203,7 +203,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         TextSpan(
                           text: AppStrings.signIn,
                           style: const TextStyle(
-                            color: AppColors.lavenderBright,
+                            color: AppColors.primary,
                             fontWeight: FontWeight.w600,
                           ),
                           recognizer: TapGestureRecognizer()

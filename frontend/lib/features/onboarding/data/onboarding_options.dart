@@ -112,6 +112,15 @@ class OnboardingOptions {
 
   static const workoutPrefs = ['Home', 'Gym', 'Both'];
 
+  /// Preset daily habits: (id, label).
+  static const habitPresets = [
+    ('water', 'Drink water'),
+    ('breakfast', 'Log breakfast'),
+    ('workout', 'Move goal'),
+    ('journal', 'Journal'),
+    ('sleep', 'Sleep by bedtime'),
+  ];
+
   static const dietTypes = [
     'Vegetarian',
     'Non-Vegetarian',

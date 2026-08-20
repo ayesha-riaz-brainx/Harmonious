@@ -8,6 +8,7 @@ import 'package:slot_1_tasks/features/onboarding/data/onboarding_draft.dart';
 import 'package:slot_1_tasks/features/onboarding/presentation/steps/food_step.dart';
 import 'package:slot_1_tasks/features/onboarding/presentation/steps/goal_details_step.dart';
 import 'package:slot_1_tasks/features/onboarding/presentation/steps/goals_step.dart';
+import 'package:slot_1_tasks/features/onboarding/presentation/steps/habits_step.dart';
 import 'package:slot_1_tasks/features/onboarding/presentation/steps/health_step.dart';
 import 'package:slot_1_tasks/features/onboarding/presentation/steps/pulse_step.dart';
 import 'package:slot_1_tasks/features/onboarding/presentation/steps/summary_step.dart';
@@ -21,6 +22,7 @@ enum _Step {
   goals,
   goalDetails,
   pulse,
+  habits,
   health,
   food,
   summary,
@@ -50,6 +52,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     _Step.goals,
     _Step.goalDetails,
     _Step.pulse,
+    _Step.habits,
     _Step.health,
     _Step.food,
     _Step.summary,
@@ -119,16 +122,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Future<void> _finish() async {
-    var profile = _profile ?? _builder.build(_draft);
+    final profile = _profile ?? _builder.build(_draft);
     setState(() {
       _loading = true;
       _profile = profile;
     });
 
-    profile = await _onboarding.enrichWithAi(draft: _draft, seed: profile);
-    if (!mounted) return;
-    setState(() => _profile = profile);
-
+    // MVP: keep rule-based profile (Mifflin–St Jeor + heuristics). No OpenAI.
     final result = await _onboarding.saveOnboarding(
       draft: _draft,
       profile: profile,
@@ -164,6 +164,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
         );
       case _Step.pulse:
         return PulseStep(draft: _draft, onContinue: _goNext);
+      case _Step.habits:
+        return HabitsStep(draft: _draft, onContinue: _goNext);
       case _Step.health:
         return HealthStep(draft: _draft, onContinue: _goNext);
       case _Step.food:

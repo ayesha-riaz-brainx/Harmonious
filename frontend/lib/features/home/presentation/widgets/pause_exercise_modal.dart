@@ -9,7 +9,7 @@ Future<void> showPauseExerciseModal(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppColors.surface,
+    backgroundColor: AppColors.cardSurface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
@@ -110,7 +110,7 @@ class _PauseSheetState extends State<_PauseSheet> {
                   value: progress.clamp(0.0, 1.0),
                   minHeight: 8,
                   backgroundColor: AppColors.background,
-                  color: AppColors.lavenderBright,
+                  color: AppColors.primary,
                 ),
               ),
               const SizedBox(height: 18),

@@ -4,6 +4,29 @@ import 'package:http/http.dart' as http;
 
 import 'package:slot_1_tasks/core/config/api_config.dart';
 
+double? _optionalDouble(dynamic value, {double min = 0}) {
+  if (value == null) return null;
+  final parsed =
+      value is num ? value.toDouble() : double.tryParse(value.toString());
+  if (parsed == null || !parsed.isFinite || parsed < min) return null;
+  return parsed;
+}
+
+int _nonNegativeInt(dynamic value) {
+  if (value == null) return 0;
+  final parsed = value is num ? value.toInt() : int.tryParse('$value');
+  if (parsed == null || parsed < 0) return 0;
+  return parsed;
+}
+
+double _nonNegativeDouble(dynamic value, {double fallback = 0}) {
+  if (value == null) return fallback;
+  final parsed =
+      value is num ? value.toDouble() : double.tryParse(value.toString());
+  if (parsed == null || !parsed.isFinite || parsed < 0) return fallback;
+  return parsed;
+}
+
 class HomeDashboard {
   HomeDashboard({
     required this.greetingName,
@@ -48,21 +71,26 @@ class DailyHistory {
     required this.completedTasks,
     required this.totalTasks,
     this.weight,
+    this.mood,
+    this.sleepHours,
   });
 
   factory DailyHistory.fromJson(Map<String, dynamic> json) {
     final tasks = (json['tasks'] as List?) ?? const [];
+    final sleep = _nonNegativeDouble(json['sleep_hours']);
     return DailyHistory(
       date: DateTime.tryParse(json['log_date']?.toString() ?? '') ??
           DateTime.now(),
-      weight: (json['weight'] as num?)?.toDouble(),
-      waterLiters: (json['water_liters'] as num?)?.toDouble() ?? 0,
-      calories: (json['calories'] as num?)?.toInt() ?? 0,
-      exerciseMinutes: (json['exercise_minutes'] as num?)?.toInt() ?? 0,
+      weight: _optionalDouble(json['weight'], min: 0.1),
+      waterLiters: _nonNegativeDouble(json['water_liters']),
+      calories: _nonNegativeInt(json['calories']),
+      exerciseMinutes: _nonNegativeInt(json['exercise_minutes']),
       completedTasks: tasks
           .where((task) => task is Map && task['done'] == true)
           .length,
       totalTasks: tasks.length,
+      mood: json['mood'] as String?,
+      sleepHours: sleep > 0 ? sleep : null,
     );
   }
 
@@ -73,6 +101,11 @@ class DailyHistory {
   final int exerciseMinutes;
   final int completedTasks;
   final int totalTasks;
+  final String? mood;
+  final double? sleepHours;
+
+  double get habitRatio =>
+      totalTasks == 0 ? 0 : completedTasks / totalTasks;
 }
 
 class TodayState {
@@ -84,24 +117,29 @@ class TodayState {
     required this.calorieGoal,
     required this.exerciseMinutes,
     required this.exerciseGoal,
+    required this.stepsGoal,
     required this.tasks,
     required this.aiBrief,
     required this.aiInsights,
     this.weight,
     this.mood,
+    this.sleepHours,
   });
 
   factory TodayState.fromJson(Map<String, dynamic> json) {
+    final sleep = _nonNegativeDouble(json['sleep_hours']);
     return TodayState(
       date: (json['date'] as String?) ?? '',
-      weight: (json['weight'] as num?)?.toDouble(),
-      waterLiters: (json['water_liters'] as num?)?.toDouble() ?? 0,
-      waterGoal: (json['water_goal'] as num?)?.toDouble() ?? 2.5,
-      calories: (json['calories'] as num?)?.toInt() ?? 0,
-      calorieGoal: (json['calorie_goal'] as num?)?.toInt() ?? 1800,
-      exerciseMinutes: (json['exercise_minutes'] as num?)?.toInt() ?? 0,
-      exerciseGoal: (json['exercise_goal'] as num?)?.toInt() ?? 30,
+      weight: _optionalDouble(json['weight'], min: 0.1),
+      waterLiters: _nonNegativeDouble(json['water_liters']),
+      waterGoal: _nonNegativeDouble(json['water_goal'], fallback: 2.5),
+      calories: _nonNegativeInt(json['calories']),
+      calorieGoal: _nonNegativeInt(json['calorie_goal'] ?? 1800),
+      exerciseMinutes: _nonNegativeInt(json['exercise_minutes']),
+      exerciseGoal: _nonNegativeInt(json['exercise_goal'] ?? 30),
+      stepsGoal: _nonNegativeInt(json['steps_goal'] ?? 8000),
       mood: json['mood'] as String?,
+      sleepHours: sleep > 0 ? sleep : null,
       tasks: ((json['tasks'] as List?) ?? [])
           .map((e) => HomeTask.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList(),
@@ -124,7 +162,9 @@ class TodayState {
   final int calorieGoal;
   final int exerciseMinutes;
   final int exerciseGoal;
+  final int stepsGoal;
   final String? mood;
+  final double? sleepHours;
   final List<HomeTask> tasks;
   final Map<String, dynamic> aiBrief;
   final List<String> aiInsights;

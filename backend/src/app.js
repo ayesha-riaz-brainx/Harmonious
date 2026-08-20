@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -16,6 +17,11 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '12mb' }));
 app.use(morgan('dev'));
+app.use(express.static(path.join(__dirname, '../public')));
+
+app.get('/privacy-policy', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/privacy-policy.html'));
+});
 
 app.get('/', (req, res) => {
   res.json({
@@ -38,6 +44,7 @@ app.get('/', (req, res) => {
       aiChat: 'POST /api/features/ai/chat',
       aiTranscribe: 'POST /api/features/ai/transcribe',
       quickCapture: 'POST /api/features/captures',
+      foodSearch: 'GET /api/features/foods/search?query=',
       journey: 'GET /api/features/journey',
       settings: 'GET /api/features/settings',
     },

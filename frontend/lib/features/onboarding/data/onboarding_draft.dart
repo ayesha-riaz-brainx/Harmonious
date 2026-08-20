@@ -20,6 +20,7 @@ class OnboardingDraft {
     this.moods = const [],
     this.moodTriggers = const [],
     this.goals = const [],
+    this.selectedHabits = const ['water', 'breakfast', 'workout', 'journal', 'sleep'],
     this.targetWeight,
     this.targetDate,
     this.workoutPreference,
@@ -67,6 +68,7 @@ class OnboardingDraft {
   List<String> moodTriggers;
 
   List<String> goals;
+  List<String> selectedHabits;
 
   // Goal details
   double? targetWeight;
@@ -123,6 +125,7 @@ class OnboardingDraft {
       'moods': moods,
       'mood_triggers': moodTriggers,
       'goals': goals,
+      'selected_habits': selectedHabits,
       'target_weight': targetWeight,
       'target_date': targetDate?.toIso8601String(),
       'workout_preference': workoutPreference,

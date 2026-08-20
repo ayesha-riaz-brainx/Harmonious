@@ -108,9 +108,13 @@ class _MainShellState extends State<MainShell> {
       await Future<void>.delayed(Duration.zero);
       if (!mounted) return;
 
-      if (outcome.home != null) {
-        _todayKey.currentState?.applyHome(outcome.home!);
-      } else {
+      try {
+        if (outcome.home != null) {
+          _todayKey.currentState?.applyHome(outcome.home!);
+        } else {
+          await _todayKey.currentState?.reload(silent: true);
+        }
+      } catch (_) {
         await _todayKey.currentState?.reload(silent: true);
       }
 
@@ -216,88 +220,98 @@ class _NavButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isAdd) {
-      return GestureDetector(
-        onTap: onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [
-                    AppColors.buttonGradientStart,
-                    AppColors.buttonGradientEnd,
+      return Semantics(
+        button: true,
+        label: 'Add',
+        child: GestureDetector(
+          onTap: onTap,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [
+                      AppColors.cyanGradientStart,
+                      AppColors.cyanGradientEnd,
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.35),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
                   ],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.lavender.withValues(alpha: 0.35),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.add_rounded,
+                  size: 28,
+                  color: AppColors.onPrimaryButton,
+                ),
               ),
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.add_rounded,
-                size: 28,
-                color: AppColors.textPrimary,
+              const SizedBox(height: 4),
+              Text(
+                item.label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: selected
+                      ? AppColors.primaryBright
+                      : AppColors.textMuted,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              item.label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: selected
-                    ? AppColors.lavenderBright
-                    : AppColors.textMuted,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          color: selected
-              ? AppColors.lavender.withValues(alpha: 0.12)
-              : Colors.transparent,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              selected ? item.selectedIcon : item.icon,
-              size: 23,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
               color: selected
-                  ? AppColors.lavenderBright
-                  : AppColors.textMuted,
+                  ? AppColors.primary.withValues(alpha: 0.12)
+                  : Colors.transparent,
             ),
-            const SizedBox(height: 4),
-            Text(
-              item.label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected
-                    ? AppColors.lavenderBright
-                    : AppColors.textMuted,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  selected ? item.selectedIcon : item.icon,
+                  size: 23,
+                  color: selected
+                      ? AppColors.primaryBright
+                      : AppColors.textMuted,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected
+                        ? AppColors.primaryBright
+                        : AppColors.textMuted,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

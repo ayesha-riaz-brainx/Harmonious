@@ -7,7 +7,7 @@ Future<void> showGroundingExerciseModal(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppColors.surface,
+    backgroundColor: AppColors.cardSurface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
@@ -99,7 +99,7 @@ class _GroundingSheetState extends State<_GroundingSheet> {
                   value: progress,
                   minHeight: 6,
                   backgroundColor: AppColors.background,
-                  color: AppColors.mint,
+                  color: AppColors.primary,
                 ),
               ),
               const Spacer(),
@@ -109,7 +109,7 @@ class _GroundingSheetState extends State<_GroundingSheet> {
                   height: 96,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.mint.withValues(alpha: 0.16),
+                    color: AppColors.primary.withValues(alpha: 0.14),
                   ),
                   alignment: Alignment.center,
                   child: Text(
@@ -117,7 +117,7 @@ class _GroundingSheetState extends State<_GroundingSheet> {
                     style: const TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.mint,
+                      color: AppColors.primary,
                     ),
                   ),
                 ),
@@ -125,7 +125,7 @@ class _GroundingSheetState extends State<_GroundingSheet> {
               const SizedBox(height: 22),
               Row(
                 children: [
-                  Icon(step.$4, color: AppColors.mint),
+                  Icon(step.$4, color: AppColors.primary),
                   const SizedBox(width: 8),
                   Text(
                     step.$2,

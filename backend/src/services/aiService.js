@@ -51,32 +51,160 @@ async function chatJson({ system, user, temperature = 0.7 }) {
   }
 }
 
-function fallbackBrief(profile, aiProfile) {
+function fallbackBrief(profile, aiProfile, today = {}) {
   const water = aiProfile?.water_goal_liters || 2.5;
   const calories = aiProfile?.calorie_target || 1800;
   const sleep = aiProfile?.sleep_goal_hours || '8 Hours';
   const primary = aiProfile?.primary_goal || 'General Wellness';
+  const name = profile?.display_name || profile?.full_name || 'friend';
+  const waterNow = Number(today?.water_liters || 0);
+  const exerciseNow = Number(today?.exercise_minutes || 0);
+  const caloriesNow = Number(today?.calories || 0);
+  const waterLeft = Math.max(0, water - waterNow);
+  const exerciseGoal = 30;
+  const exerciseLeft = Math.max(0, exerciseGoal - exerciseNow);
+
+  const focus_items = [
+    waterLeft <= 0.05
+      ? 'Water goal reached — keep sipping lightly'
+      : `Drink ${waterLeft.toFixed(1)}L more water (goal ${water}L)`,
+    exerciseLeft <= 0
+      ? 'Movement done for today — nice work'
+      : `Move for ${exerciseLeft} more minutes`,
+    caloriesNow >= calories
+      ? `You've logged ${caloriesNow} kcal — ease into lighter choices`
+      : `Stay near ${calories} kcal today`,
+    `Protect your sleep goal: ${sleep}`,
+  ];
 
   return {
     title: "Today's Focus",
-    focus_items: [
-      `Drink ${water}L Water`,
-      'Walk 30 Minutes',
-      `Stay under ${calories} Calories`,
-      `Sleep goal: ${sleep}`,
-    ],
-    encouragement: "You're progressing well. Keep it up!",
+    focus_items,
+    encouragement: `You've got this, ${name}. Small steps toward ${primary} still count.`,
     primary_goal: primary,
-    source: 'fallback',
+    source: 'rules',
   };
 }
 
-function fallbackInsights(profile, aiProfile) {
-  return [
-    'You drink more water on workout days.',
-    'Your mood improves after walking.',
-    "You've stayed within your calorie goal recently.",
-  ].map((text) => ({ text, source: 'fallback' }));
+function fallbackInsights(profile, aiProfile, today = {}) {
+  const water = Number(today?.water_liters || 0);
+  const waterGoal = Number(aiProfile?.water_goal_liters || 2.5);
+  const calories = Number(today?.calories || 0);
+  const calorieGoal = Number(aiProfile?.calorie_target || 1800);
+  const exercise = Number(today?.exercise_minutes || 0);
+  const mood = (today?.mood || '').toString().trim();
+  const sleep = today?.sleep_hours != null ? Number(today.sleep_hours) : null;
+
+  const insights = [];
+  if (water > 0 && waterGoal > 0) {
+    const pct = Math.round((water / waterGoal) * 100);
+    insights.push(
+      pct >= 100
+        ? 'Hydration goal met today — consistency builds the habit.'
+        : `You're at ${pct}% of today's water goal.`,
+    );
+  } else {
+    insights.push('Log water to track hydration against your daily goal.');
+  }
+  if (exercise > 0) {
+    insights.push(`You've logged ${exercise} minutes of movement today.`);
+  } else {
+    insights.push('A short walk later can boost energy and mood.');
+  }
+  if (calories > 0) {
+    insights.push(
+      calories <= calorieGoal
+        ? `Calories are on track (${calories} / ${calorieGoal} kcal).`
+        : `Calories are above target (${calories} / ${calorieGoal} kcal) — balance the next meal.`,
+    );
+  } else {
+    insights.push('Log meals to keep an eye on your daily energy intake.');
+  }
+  if (mood) {
+    insights.push(`Mood noted as ${mood} — check in again if it shifts.`);
+  } else if (sleep != null) {
+    insights.push(
+      sleep >= 7
+        ? `Solid sleep logged (${sleep}h). Protect that rhythm tonight.`
+        : `Sleep was ${sleep}h — wind down a bit earlier if you can.`,
+    );
+  } else {
+    insights.push('Track mood or sleep once today for a clearer weekly picture.');
+  }
+
+  return insights.slice(0, 4).map((text) => ({ text, source: 'rules' }));
+}
+
+function fallbackProgressReport({ period = 'Weekly', profile, logs = [], captures = [] }) {
+  const name = profile?.display_name || profile?.full_name || 'you';
+  const days = Array.isArray(logs) ? logs : [];
+  const caps = Array.isArray(captures) ? captures : [];
+
+  const avgWater = days.length
+    ? days.reduce((sum, row) => sum + Number(row.water_liters || 0), 0) / days.length
+    : 0;
+  const avgExercise = days.length
+    ? days.reduce((sum, row) => sum + Number(row.exercise_minutes || 0), 0) / days.length
+    : 0;
+  const avgCalories = days.length
+    ? days.reduce((sum, row) => sum + Number(row.calories || 0), 0) / days.length
+    : 0;
+  const loggingDays = days.filter(
+    (row) =>
+      Number(row.water_liters || 0) > 0 ||
+      Number(row.calories || 0) > 0 ||
+      Number(row.exercise_minutes || 0) > 0 ||
+      row.mood ||
+      Number(row.sleep_hours || 0) > 0,
+  ).length;
+
+  const mealLogs = caps.filter((c) => c.type === 'meal').length;
+  const workoutLogs = caps.filter((c) => c.type === 'workout').length;
+  const waterGoal = Number(profile?.ai_profile?.water_goal_liters || 2.5);
+  const calorieGoal = Number(profile?.ai_profile?.calorie_target || 1800);
+
+  const highlights = [];
+  if (loggingDays > 0) {
+    highlights.push(`Logged on ${loggingDays} of ${Math.max(days.length, loggingDays)} days in this ${period.toLowerCase()} window.`);
+  }
+  if (avgWater > 0) {
+    highlights.push(
+      avgWater >= waterGoal * 0.85
+        ? `Hydration averaged ${avgWater.toFixed(1)} L/day — near your ${waterGoal} L goal.`
+        : `Hydration averaged ${avgWater.toFixed(1)} L/day — room to reach ${waterGoal} L.`,
+    );
+  }
+  if (avgExercise > 0) {
+    highlights.push(`Movement averaged ${Math.round(avgExercise)} min/day.`);
+  } else if (workoutLogs > 0) {
+    highlights.push(`${workoutLogs} workout${workoutLogs === 1 ? '' : 's'} logged.`);
+  }
+  if (mealLogs > 0) {
+    highlights.push(`${mealLogs} meal${mealLogs === 1 ? '' : 's'} tracked${avgCalories > 0 ? ` (~${Math.round(avgCalories)} kcal/day avg)` : ''}.`);
+  }
+  if (highlights.length === 0) {
+    highlights.push('Start logging meals, water, or movement to build your first report.');
+  }
+
+  const next_steps = [];
+  if (avgWater < waterGoal * 0.7) next_steps.push('Aim for one extra glass of water on low days.');
+  if (avgExercise < 20) next_steps.push('Schedule a 15–20 minute walk or workout twice this week.');
+  if (avgCalories <= 0) next_steps.push('Log at least one meal per day to spot energy patterns.');
+  if (next_steps.length < 3) next_steps.push('Check in with mood or sleep once mid-week.');
+  if (next_steps.length < 3) next_steps.push('Keep using Quick Capture for fast daily logs.');
+
+  const summary =
+    loggingDays === 0
+      ? `${name}, there isn’t much data in this ${period.toLowerCase()} window yet — each small log helps trends take shape.`
+      : `${name}, here’s a quick ${period.toLowerCase()} snapshot from your logs: steady tracking on ${loggingDays} day${loggingDays === 1 ? '' : 's'}, with hydration, meals, and movement summarized below.`;
+
+  return {
+    title: `${period} progress review`,
+    highlights: highlights.slice(0, 5),
+    summary,
+    next_steps: next_steps.slice(0, 4),
+    source: 'rules',
+  };
 }
 
 async function generateDailyBrief({ profile, aiProfile, onboardingData, today }) {
@@ -96,10 +224,10 @@ async function generateDailyBrief({ profile, aiProfile, onboardingData, today })
       title: result.title || "Today's Focus",
       focus_items: Array.isArray(result.focus_items)
         ? result.focus_items.slice(0, 5)
-        : fallbackBrief(profile, aiProfile).focus_items,
+        : fallbackBrief(profile, aiProfile, today).focus_items,
       encouragement:
         result.encouragement ||
-        fallbackBrief(profile, aiProfile).encouragement,
+        fallbackBrief(profile, aiProfile, today).encouragement,
       primary_goal:
         result.primary_goal || aiProfile?.primary_goal || 'General Wellness',
       source: 'openai',
@@ -107,7 +235,7 @@ async function generateDailyBrief({ profile, aiProfile, onboardingData, today })
   } catch (error) {
     if (error.code === 'AI_KEY_MISSING') throw error;
     console.error('AI brief failed, using fallback:', error.message);
-    return fallbackBrief(profile, aiProfile);
+    return fallbackBrief(profile, aiProfile, today);
   }
 }
 
@@ -126,12 +254,12 @@ async function generateInsights({ profile, aiProfile, onboardingData, today }) {
     });
 
     const list = Array.isArray(result.insights) ? result.insights : [];
-    if (list.length === 0) return fallbackInsights(profile, aiProfile);
+    if (list.length === 0) return fallbackInsights(profile, aiProfile, today);
     return list.slice(0, 4).map((text) => ({ text, source: 'openai' }));
   } catch (error) {
     if (error.code === 'AI_KEY_MISSING') throw error;
     console.error('AI insights failed, using fallback:', error.message);
-    return fallbackInsights(profile, aiProfile);
+    return fallbackInsights(profile, aiProfile, today);
   }
 }
 
@@ -258,67 +386,65 @@ async function generateToolResult({ tool, input, profile, logs = [], captures = 
       ? 'For health_journey, always include journey.discoveries (3-5 specific patterns like "you usually exercise after work"), journey.reflection (coach voice), journey.next_milestone (title, expected_days, progress 0-100, encouragement), plus optional highlights/habits/focus. '
       : '');
 
-  let result;
   if (input?.image_base64) {
-    if (!hasAiKey()) {
-      const error = new Error('OPENAI_API_KEY missing.');
-      error.status = 503;
-      throw error;
-    }
-    const response = await fetch(OPENAI_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY.trim()}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        temperature: 0.4,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: system },
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify({
-                  note: input.note || '',
-                  profile,
-                }),
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${input.mime_type || 'image/jpeg'};base64,${input.image_base64}`,
-                },
-              },
-            ],
-          },
-        ],
-      }),
+    const error = new Error(
+      'Photo-based analysis is not available. Describe your meal or log calories manually instead.',
+    );
+    error.status = 400;
+    error.code = 'PHOTO_NOT_SUPPORTED';
+    throw error;
+  }
+
+  let result;
+  if (tool === 'progress_review' && !hasAiKey()) {
+    const report = fallbackProgressReport({
+      period: 'Monthly',
+      profile,
+      logs,
+      captures,
     });
-    const body = await response.json();
-    if (!response.ok) {
-      const error = new Error(
-        body?.error?.message || 'Image analysis failed.',
-      );
-      error.status = 502;
-      throw error;
-    }
-    result = JSON.parse(body.choices?.[0]?.message?.content || '{}');
+    result = {
+      title: report.title,
+      summary: report.summary,
+      actions: report.next_steps,
+      highlights: report.highlights,
+      report,
+      source: 'rules',
+    };
   } else {
-    result = await chatJson({
-      system,
-      user: JSON.stringify({
-        input,
-        profile,
-        daily_logs: logs,
-        recent_captures: captures,
-        water_goal_liters: profile?.ai_profile?.water_goal_liters || 2.5,
-      }),
-      temperature: tool === 'emotional_support' ? 0.7 : 0.55,
-    });
+    try {
+      result = await chatJson({
+        system,
+        user: JSON.stringify({
+          input,
+          profile,
+          daily_logs: logs,
+          recent_captures: captures,
+          water_goal_liters: profile?.ai_profile?.water_goal_liters || 2.5,
+        }),
+        temperature: tool === 'emotional_support' ? 0.7 : 0.55,
+      });
+      result.source = 'openai';
+    } catch (error) {
+      if (tool === 'progress_review' && error.code === 'AI_KEY_MISSING') {
+        const report = fallbackProgressReport({
+          period: 'Monthly',
+          profile,
+          logs,
+          captures,
+        });
+        result = {
+          title: report.title,
+          summary: report.summary,
+          actions: report.next_steps,
+          highlights: report.highlights,
+          report,
+          source: 'rules',
+        };
+      } else {
+        throw error;
+      }
+    }
   }
   const plan = result.plan && typeof result.plan === 'object' ? result.plan : null;
   const days = Array.isArray(plan?.days)
@@ -401,6 +527,11 @@ async function generateToolResult({ tool, input, profile, logs = [], captures = 
     title: result.title || 'AI Result',
     summary: result.summary || result.raw || 'Analysis completed.',
     actions: Array.isArray(result.actions) ? result.actions.slice(0, 5) : [],
+    highlights: Array.isArray(result.highlights)
+      ? result.highlights.slice(0, 5)
+      : [],
+    report: result.report && typeof result.report === 'object' ? result.report : null,
+    source: result.source || 'openai',
     exercise,
     plan: days.length ? { days } : plan,
     journey,
@@ -408,20 +539,31 @@ async function generateToolResult({ tool, input, profile, logs = [], captures = 
 }
 
 async function generateProgressReport({ period, profile, captures, logs }) {
-  const result = await chatJson({
-    system:
-      `Create a ${period} wellbeing progress report. Return JSON only: ` +
-      '{"title":"report title","highlights":["..."],"summary":"2-3 sentences","next_steps":["..."]}. ' +
-      'Use only supplied data; clearly avoid inventing progress.',
-    user: JSON.stringify({ profile, captures, daily_logs: logs }),
-    temperature: 0.5,
-  });
-  return {
-    title: result.title || `Your ${period} Progress`,
-    highlights: Array.isArray(result.highlights) ? result.highlights : [],
-    summary: result.summary || 'Keep logging to unlock richer trends.',
-    next_steps: Array.isArray(result.next_steps) ? result.next_steps : [],
-  };
+  if (!hasAiKey()) {
+    return fallbackProgressReport({ period, profile, logs, captures });
+  }
+  try {
+    const result = await chatJson({
+      system:
+        `Create a ${period} wellbeing progress report. Return JSON only: ` +
+        '{"title":"report title","highlights":["..."],"summary":"2-3 sentences","next_steps":["..."]}. ' +
+        'Use only supplied data; clearly avoid inventing progress.',
+      user: JSON.stringify({ profile, captures, daily_logs: logs }),
+      temperature: 0.5,
+    });
+    return {
+      title: result.title || `Your ${period} Progress`,
+      highlights: Array.isArray(result.highlights) ? result.highlights : [],
+      summary: result.summary || 'Keep logging to unlock richer trends.',
+      next_steps: Array.isArray(result.next_steps) ? result.next_steps : [],
+      source: 'openai',
+    };
+  } catch (error) {
+    if (error.code === 'AI_KEY_MISSING') {
+      return fallbackProgressReport({ period, profile, logs, captures });
+    }
+    throw error;
+  }
 }
 
 async function transcribeAudio({
@@ -491,6 +633,7 @@ async function transcribeAudio({
 
 module.exports = {
   hasAiKey,
+  chatJson,
   generateDailyBrief,
   generateInsights,
   generateOnboardingSummary,
@@ -500,4 +643,5 @@ module.exports = {
   transcribeAudio,
   fallbackBrief,
   fallbackInsights,
+  fallbackProgressReport,
 };
