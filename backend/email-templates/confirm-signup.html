@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Verify your email | Harmonious</title>
+  </head>
+  <body style="margin:0;padding:0;background:#0E0E12;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#F2F0FA;">
+    <!--
+      Paste this template into Supabase:
+      Authentication → Email Templates → Confirm signup
+
+      Subject: Verify your Harmonious email
+
+      Keep {{ .ConfirmationURL }} exactly as-is.
+    -->
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0E0E12;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" style="max-width:520px;background:#17171D;border:1px solid #2A2A35;border-radius:20px;overflow:hidden;">
+            <tr>
+              <td style="padding:28px 28px 8px 28px;">
+                <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#00F2FE;font-weight:700;">Harmonious</div>
+                <h1 style="margin:14px 0 0;font-size:26px;line-height:1.25;color:#FFFFFF;">Verify your email</h1>
+                <p style="margin:14px 0 0;font-size:15px;line-height:1.65;color:#B7B3C5;">
+                  Welcome to Harmonious. Confirm your email address so we can secure your account and personalize your wellness journey.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:24px 28px 8px 28px;">
+                <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 28px;border-radius:999px;background:linear-gradient(135deg,#00F2FE,#4FACFE);color:#0A1628;font-size:15px;font-weight:700;text-decoration:none;">
+                  Verify email address
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px 28px 28px;">
+                <p style="margin:0;font-size:13px;line-height:1.6;color:#9B97AB;">
+                  This link expires soon. If you didn’t create a Harmonious account, you can ignore this email.
+                </p>
+                <p style="margin:18px 0 0;font-size:12px;line-height:1.55;color:#6E6A7C;word-break:break-all;">
+                  Button not working? Paste this link into your browser:<br />
+                  <a href="{{ .ConfirmationURL }}" style="color:#00F2FE;">{{ .ConfirmationURL }}</a>
+                </p>
+                <p style="margin:22px 0 0;font-size:12px;color:#7E7A8C;">
+                  Sent by Harmonious · Your life, understood.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

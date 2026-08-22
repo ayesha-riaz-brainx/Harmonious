@@ -73,7 +73,7 @@ class AiProfileBuilder {
       workoutPlan: workout,
       focusAreas: focus,
       message:
-          "Great! Your AI companion has created your initial plan. As you use the app, I'll learn from your habits and make my recommendations smarter.",
+          'Great! We built your starting plan from your answers. As you log habits, your dashboard will keep adapting.',
       stepsGoal: stepsGoal,
       exerciseGoalMinutes: exerciseMinutes,
       habitTemplates: habits,

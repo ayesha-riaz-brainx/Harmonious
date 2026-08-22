@@ -6,14 +6,16 @@ import 'package:slot_1_tasks/core/constants/app_strings.dart';
 import 'package:slot_1_tasks/core/services/auth_service.dart';
 import 'package:slot_1_tasks/core/services/profile_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
+import 'package:slot_1_tasks/shared/widgets/auth_notice.dart';
 import 'package:slot_1_tasks/shared/widgets/auth_screen_scaffold.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_gradient_button.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_text_field.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, this.authService});
+  const LoginPage({super.key, this.authService, this.initialEmail});
 
   final AuthService? authService;
+  final String? initialEmail;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -32,6 +34,10 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     _authService = widget.authService ?? AuthService();
+    final seed = widget.initialEmail?.trim();
+    if (seed != null && seed.isNotEmpty) {
+      _emailController.text = seed;
+    }
   }
 
   @override
@@ -53,15 +59,32 @@ class _LoginPageState extends State<LoginPage> {
 
     if (!result.success) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message)),
+      final needsVerify = result.message.toLowerCase().contains('verify');
+      AuthNotice.show(
+        context,
+        message: result.message,
+        tone: needsVerify ? AuthNoticeTone.warning : AuthNoticeTone.error,
+        duration: const Duration(seconds: 5),
       );
+      if (needsVerify) {
+        Navigator.of(context).pushNamed(
+          AppRoutes.checkEmail,
+          arguments: _emailController.text.trim().toLowerCase(),
+        );
+      }
       return;
     }
 
     final profile = await _profiles.fetchCurrentProfile();
     if (!mounted) return;
     setState(() => _isLoading = false);
+
+    AuthNotice.show(
+      context,
+      message: 'Welcome back.',
+      tone: AuthNoticeTone.success,
+      duration: const Duration(seconds: 2),
+    );
 
     if (profile == null || !profile.profileSetupCompleted) {
       Navigator.of(context).pushNamedAndRemoveUntil(
@@ -183,10 +206,10 @@ class _LoginPageState extends State<LoginPage> {
                         const TextSpan(text: AppStrings.noAccount),
                         TextSpan(
                           text: AppStrings.signUp,
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
                           recognizer: TapGestureRecognizer()
                             ..onTap = () {
                               Navigator.of(context)

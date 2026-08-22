@@ -1,9 +1,5 @@
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:slot_1_tasks/core/config/api_config.dart';
 import 'package:slot_1_tasks/core/services/auth_service.dart';
 import 'package:slot_1_tasks/features/onboarding/data/ai_profile_builder.dart';
 import 'package:slot_1_tasks/features/onboarding/data/onboarding_draft.dart';
@@ -31,62 +27,6 @@ class OnboardingService {
           .first;
     }
     return 'Unable to save onboarding. Please try again.';
-  }
-
-  Future<AiProfile> enrichWithAi({
-    required OnboardingDraft draft,
-    required AiProfile seed,
-  }) async {
-    try {
-      final response = await http
-          .post(
-            ApiConfig.onboardingAiSummary,
-            headers: ApiConfig.authHeaders(),
-            body: jsonEncode({
-              'draft': draft.toJson(),
-              'ruleBased': seed.toJson(),
-            }),
-          )
-          .timeout(const Duration(seconds: 40));
-
-      final body = response.body.isNotEmpty
-          ? jsonDecode(response.body) as Map<String, dynamic>
-          : <String, dynamic>{};
-
-      if (response.statusCode >= 400) {
-        // Missing key or AI failure — keep rule-based seed.
-        return seed;
-      }
-
-      final profile = body['profile'] as Map<String, dynamic>? ?? body;
-      return AiProfile(
-        primaryGoal: (profile['primary_goal'] as String?) ?? seed.primaryGoal,
-        secondaryGoals: ((profile['secondary_goals'] as List?) ?? seed.secondaryGoals)
-            .map((e) => e.toString())
-            .toList(),
-        calorieTarget:
-            (profile['calorie_target'] as num?)?.toInt() ?? seed.calorieTarget,
-        waterGoalLiters: (profile['water_goal_liters'] as num?)?.toDouble() ??
-            seed.waterGoalLiters,
-        sleepGoalHours:
-            (profile['sleep_goal_hours'] as String?) ?? seed.sleepGoalHours,
-        workoutPlan: (profile['workout_plan'] as String?) ?? seed.workoutPlan,
-        focusAreas: ((profile['focus_areas'] as List?) ?? seed.focusAreas)
-            .map((e) => e.toString())
-            .toList(),
-        message: (profile['message'] as String?) ?? seed.message,
-        stepsGoal: (profile['steps_goal'] as num?)?.toInt() ?? seed.stepsGoal,
-        exerciseGoalMinutes:
-            (profile['exercise_goal_minutes'] as num?)?.toInt() ??
-                seed.exerciseGoalMinutes,
-        habitTemplates:
-            ((profile['habit_templates'] as List?) ?? seed.habitTemplates)
-                .map((e) => e.toString())
-                .toList(),
-      );
-    } catch (_) {
-      return seed;
-    }
   }
 
   Future<AuthResult> saveOnboarding({
@@ -120,11 +60,14 @@ class OnboardingService {
         payload['birthday'] =
             draft.birthday!.toIso8601String().split('T').first;
       }
+      if (draft.zodiacSign != null && draft.zodiacSign!.isNotEmpty) {
+        payload['zodiac_sign'] = draft.zodiacSign;
+      }
       payload['height_unit'] = draft.heightUnit;
       payload['weight_unit'] = draft.weightUnit;
 
       await _supabase.from('profiles').upsert(payload);
-      return AuthResult.success(message: 'Your AI profile is ready.');
+      return AuthResult.success(message: 'Your wellness profile is ready.');
     } catch (error) {
       return AuthResult.failure(_mapError(error));
     }

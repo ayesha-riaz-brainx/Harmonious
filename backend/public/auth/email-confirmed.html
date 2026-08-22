@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Your Harmonious email is verified" />
+    <title>Email verified | Harmonious</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0e0e12;
+        --surface: #1a1a24;
+        --line: #2a2a36;
+        --text: #f2f0fa;
+        --muted: #9b97ab;
+        --accent: #00f2fe;
+        --accent-2: #4facfe;
+        --ok: #7ed9a7;
+        --warn: #ffc56e;
+        --err: #ff8d8d;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at 18% 0%, #142841 0, transparent 36rem),
+          radial-gradient(circle at 90% 10%, rgba(0, 242, 254, 0.08) 0, transparent 22rem),
+          var(--bg);
+        color: var(--text);
+        display: grid;
+        place-items: center;
+        padding: 28px 16px;
+      }
+      .card {
+        width: min(100%, 440px);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: rgba(26, 26, 36, 0.92);
+        padding: 36px 28px 32px;
+        text-align: center;
+      }
+      .brand {
+        margin: 0 0 22px;
+        color: var(--accent);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      .icon {
+        width: 72px;
+        height: 72px;
+        margin: 0 auto 20px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, rgba(0, 242, 254, 0.18), rgba(79, 172, 254, 0.12));
+        border: 1px solid rgba(0, 242, 254, 0.35);
+        font-size: 1.8rem;
+      }
+      .icon.error {
+        background: rgba(255, 141, 141, 0.12);
+        border-color: rgba(255, 141, 141, 0.35);
+      }
+      .icon.pending {
+        background: rgba(255, 197, 110, 0.12);
+        border-color: rgba(255, 197, 110, 0.35);
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(1.55rem, 5vw, 1.9rem);
+        line-height: 1.2;
+      }
+      p {
+        margin: 14px 0 0;
+        color: var(--muted);
+        font-size: 0.98rem;
+        line-height: 1.6;
+      }
+      .steps {
+        margin: 24px 0 0;
+        padding: 0;
+        list-style: none;
+        text-align: left;
+      }
+      .steps li {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 12px 0;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.92rem;
+        line-height: 1.45;
+      }
+      .steps li:last-child { border-bottom: 1px solid var(--line); }
+      .n {
+        flex: 0 0 auto;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: rgba(0, 242, 254, 0.12);
+        color: var(--accent);
+        font-size: 0.72rem;
+        font-weight: 700;
+        margin-top: 1px;
+      }
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 28px;
+        min-height: 48px;
+        padding: 0 22px;
+        border-radius: 999px;
+        border: none;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #0a1628;
+        font-weight: 700;
+        font-size: 0.95rem;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .cta.secondary {
+        margin-top: 12px;
+        background: transparent;
+        border: 1px solid var(--line);
+        color: var(--text);
+      }
+      footer {
+        margin-top: 28px;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+      .hidden { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main class="card" id="panel">
+      <p class="brand">Harmonious</p>
+      <div class="icon" id="icon">✓</div>
+      <h1 id="title">Email verified</h1>
+      <p id="message">
+        Your email is confirmed. Open the Harmonious app and sign in to continue
+        your wellness journey.
+      </p>
+      <ol class="steps" id="steps">
+        <li><span class="n">1</span><span>Open the Harmonious app on your phone</span></li>
+        <li><span class="n">2</span><span>Sign in with the email you just verified</span></li>
+        <li><span class="n">3</span><span>Finish profile setup and start your Today dashboard</span></li>
+      </ol>
+      <a class="cta" href="#" id="open-app">Open Harmonious</a>
+      <a class="cta secondary" href="/privacy-policy.html">Privacy policy</a>
+      <footer>Your life, understood.</footer>
+    </main>
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+        var error =
+          params.get("error") ||
+          params.get("error_code") ||
+          hash.get("error") ||
+          hash.get("error_code");
+        var errorDesc =
+          params.get("error_description") ||
+          hash.get("error_description") ||
+          "";
+        var type = params.get("type") || hash.get("type") || "";
+        var hasAccess =
+          hash.get("access_token") ||
+          params.get("access_token") ||
+          hash.get("token_hash");
+
+        var icon = document.getElementById("icon");
+        var title = document.getElementById("title");
+        var message = document.getElementById("message");
+        var steps = document.getElementById("steps");
+        var openApp = document.getElementById("open-app");
+
+        if (error) {
+          icon.className = "icon error";
+          icon.textContent = "!";
+          title.textContent = "Link expired or invalid";
+          message.textContent =
+            (errorDesc || "This confirmation link is no longer valid.")
+              .replace(/\+/g, " ") +
+            " Open the Harmonious app and request a new verification email from the sign-up or login screen.";
+          steps.classList.add("hidden");
+          openApp.textContent = "Back to Harmonious";
+        } else if (!hasAccess && type && type !== "signup" && type !== "email") {
+          icon.className = "icon pending";
+          icon.textContent = "…";
+          title.textContent = "Finishing verification";
+          message.textContent =
+            "Hang tight — if you landed here from your email, your account should be ready. Open the app and sign in.";
+        }
+
+        openApp.addEventListener("click", function (e) {
+          e.preventDefault();
+          // Deep link if installed; otherwise leave the success message visible.
+          window.location.href = "harmonious://login";
+          setTimeout(function () {
+            window.location.href = "https://harmonious.onrender.com/";
+          }, 700);
+        });
+      })();
+    </script>
+  </body>
+</html>

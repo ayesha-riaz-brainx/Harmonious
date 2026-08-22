@@ -252,16 +252,4 @@ class HomeService {
     }
     return HomeDashboard.fromJson(body);
   }
-
-  Future<HomeDashboard> refreshAi() async {
-    final response = await http
-        .post(ApiConfig.homeRefreshAi, headers: ApiConfig.authHeaders())
-        .timeout(const Duration(seconds: 45));
-
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode >= 400) {
-      throw Exception(body['message'] ?? 'Unable to refresh AI.');
-    }
-    return HomeDashboard.fromJson(body);
-  }
 }

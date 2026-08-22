@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 
+import 'package:url_launcher/url_launcher.dart';
+
+import 'package:slot_1_tasks/core/config/api_config.dart';
 import 'package:slot_1_tasks/core/constants/app_routes.dart';
+import 'package:slot_1_tasks/core/constants/app_strings.dart';
 import 'package:slot_1_tasks/core/services/auth_service.dart';
 import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/bmi_assessment_page.dart';
 import 'package:slot_1_tasks/features/onboarding/data/onboarding_options.dart';
+import 'package:slot_1_tasks/shared/widgets/auth_notice.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_background.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_ui.dart';
 
@@ -22,7 +27,6 @@ class _YouTabState extends State<YouTab> {
   final _auth = AuthService();
   final _api = FeatureService();
   Map<String, dynamic> _profile = {};
-  Map<String, dynamic> _settings = {};
   Map<String, dynamic> _health = {};
   List<String> _goals = [];
   bool _loading = true;
@@ -40,7 +44,6 @@ class _YouTabState extends State<YouTab> {
       if (!mounted) return;
       setState(() {
         _profile = Map<String, dynamic>.from(data['profile'] as Map? ?? {});
-        _settings = Map<String, dynamic>.from(data['settings'] as Map? ?? {});
         _health = Map<String, dynamic>.from(data['health_info'] as Map? ?? {});
         _goals =
             ((data['goals'] as List?) ?? []).map((e) => e.toString()).toList();
@@ -60,7 +63,6 @@ class _YouTabState extends State<YouTab> {
       if (!mounted) return;
       setState(() {
         _profile = Map<String, dynamic>.from(data['profile'] as Map? ?? {});
-        _settings = Map<String, dynamic>.from(data['settings'] as Map? ?? {});
         _health = Map<String, dynamic>.from(data['health_info'] as Map? ?? {});
         _goals =
             ((data['goals'] as List?) ?? []).map((e) => e.toString()).toList();
@@ -309,6 +311,62 @@ class _YouTabState extends State<YouTab> {
     );
   }
 
+  Future<void> _openPrivacyPolicy() async {
+    final uri = Uri.parse(ApiConfig.privacyPolicyUrl);
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      AuthNotice.show(
+        context,
+        message: 'Could not open the privacy policy.',
+        tone: AuthNoticeTone.error,
+      );
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Delete account?'),
+        content: const Text(
+          'This permanently deletes your Harmonious account and data. '
+          'This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.coral),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busy = true);
+    final result = await _auth.deleteAccount();
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    AuthNotice.show(
+      context,
+      message: result.message,
+      tone: result.success ? AuthNoticeTone.success : AuthNoticeTone.error,
+    );
+
+    if (!result.success) return;
+
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.welcome,
+      (route) => false,
+    );
+  }
+
   void _toast(Object value) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -347,7 +405,7 @@ class _YouTabState extends State<YouTab> {
               const HarmoniousPageHeader(
                 icon: Icons.person_rounded,
                 title: 'You',
-                subtitle: 'Profile, goals, and app settings',
+                subtitle: 'Profile, goals, and account',
               ),
               const SizedBox(height: 20),
               _profileCard(name),
@@ -357,7 +415,7 @@ class _YouTabState extends State<YouTab> {
                 title: 'BMI assessment',
                 icon: Icons.monitor_weight_outlined,
                 color: AppColors.aqua,
-                subtitle: 'Age, height & weight → WHO-style BMI (no AI)',
+                subtitle: 'Age, height & weight → WHO-style BMI',
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -383,20 +441,19 @@ class _YouTabState extends State<YouTab> {
               ),
               const HarmoniousSectionDivider(),
               const SizedBox(height: 8),
-              _settingsSection(),
               _section(
-                title: 'Privacy & data export',
+                title: 'Privacy policy',
                 icon: Icons.privacy_tip_rounded,
                 color: AppColors.sky,
-                subtitle: 'Copy a complete export of your Harmonious data',
-                onTap: _export,
+                subtitle: 'Read how Harmonious handles your data',
+                onTap: _openPrivacyPolicy,
               ),
               _section(
-                title: 'Subscription',
-                icon: Icons.workspace_premium_rounded,
-                color: AppColors.secondary,
-                subtitle: 'Free plan · Manage subscription',
-                onTap: () => _toast('Subscription management coming soon.'),
+                title: 'Privacy & data export',
+                icon: Icons.download_rounded,
+                color: AppColors.mint,
+                subtitle: 'Copy a complete export of your Harmonious data',
+                onTap: _export,
               ),
               const SizedBox(height: 20),
               SizedBox(
@@ -405,6 +462,18 @@ class _YouTabState extends State<YouTab> {
                   onPressed: _busy ? null : _logout,
                   icon: const Icon(Icons.logout_rounded),
                   label: const Text('Log out'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: HarmoniousSpacing.minTapTarget,
+                child: TextButton.icon(
+                  onPressed: _busy ? null : _deleteAccount,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.coral,
+                  ),
+                  icon: const Icon(Icons.delete_forever_rounded),
+                  label: const Text(AppStrings.deleteAccount),
                 ),
               ),
             ],
@@ -467,80 +536,6 @@ class _YouTabState extends State<YouTab> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _settingsSection() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: HarmoniousCard(
-        padding: EdgeInsets.zero,
-        child: ExpansionTile(
-        leading: const Icon(
-          Icons.tune_rounded,
-          color: AppColors.aqua,
-        ),
-        title: const Text(
-          'AI & App Settings',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: const Text('Personality, style, memory, theme, privacy'),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        children: [
-          _dropdown(
-            label: 'AI personality',
-            value: _settings['ai_personality']?.toString() ?? 'Supportive',
-            options: const ['Supportive', 'Motivating', 'Calm', 'Direct'],
-            saveKey: 'ai_personality',
-          ),
-          _dropdown(
-            label: 'Communication style',
-            value: _settings['communication_style']?.toString() ?? 'Balanced',
-            options: const ['Concise', 'Balanced', 'Detailed'],
-            saveKey: 'communication_style',
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('AI memory'),
-            subtitle: const Text('Let AI remember preferences and goals'),
-            value: _settings['memory_enabled'] != false,
-            onChanged: (value) => _save({
-              'settings': {'memory_enabled': value},
-            }),
-          ),
-          _dropdown(
-            label: 'Theme',
-            value: _settings['theme']?.toString() ?? 'Dark',
-            options: const ['Dark', 'System'],
-            saveKey: 'theme',
-          ),
-          _dropdown(
-            label: 'Privacy mode',
-            value: _settings['privacy_mode']?.toString() ?? 'Standard',
-            options: const ['Standard', 'Strict'],
-            saveKey: 'privacy_mode',
-          ),
-        ],
-      ),
-      ),
-    );
-  }
-
-  Widget _dropdown({
-    required String label,
-    required String value,
-    required List<String> options,
-    required String saveKey,
-  }) {
-    return DropdownButtonFormField<String>(
-      initialValue: options.contains(value) ? value : options.first,
-      decoration: InputDecoration(labelText: label),
-      items: options
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-          .toList(),
-      onChanged: (next) {
-        if (next != null) _save({'settings': {saveKey: next}});
-      },
     );
   }
 

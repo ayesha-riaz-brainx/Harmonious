@@ -19,6 +19,8 @@ class UserProfile {
     this.profileSetupCompleted = false,
     this.onboardingCompleted = false,
     this.aiProfile,
+    this.zodiacSign,
+    this.birthday,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -43,6 +45,10 @@ class UserProfile {
       profileSetupCompleted: json['profile_setup_completed'] == true,
       onboardingCompleted: json['onboarding_completed'] == true,
       aiProfile: ai,
+      zodiacSign: json['zodiac_sign'] as String?,
+      birthday: json['birthday'] != null
+          ? DateTime.tryParse(json['birthday'].toString())
+          : null,
     );
   }
 
@@ -60,6 +66,8 @@ class UserProfile {
   final bool profileSetupCompleted;
   final bool onboardingCompleted;
   final Map<String, dynamic>? aiProfile;
+  final String? zodiacSign;
+  final DateTime? birthday;
 }
 
 class ProfileService {
@@ -145,27 +153,6 @@ class ProfileService {
       await _supabase.from('profiles').upsert(payload);
 
       return AuthResult.success(message: 'Profile saved.');
-    } catch (error) {
-      return AuthResult.failure(_mapSaveError(error));
-    }
-  }
-
-  Future<AuthResult> saveOnboardingCompleted() async {
-    try {
-      final user = _supabase.auth.currentUser;
-      if (user == null) {
-        return AuthResult.failure('Session expired. Please log in again.');
-      }
-
-      await _supabase.from('profiles').upsert({
-        'id': user.id,
-        'email': user.email,
-        'onboarding_completed': true,
-        'profile_setup_completed': true,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
-
-      return AuthResult.success(message: 'Onboarding completed.');
     } catch (error) {
       return AuthResult.failure(_mapSaveError(error));
     }

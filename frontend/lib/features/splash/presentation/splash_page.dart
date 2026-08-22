@@ -64,7 +64,8 @@ class _SplashPageState extends State<SplashPage>
       Navigator.of(context).pushReplacementNamed(AppRoutes.home);
     } catch (_) {
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed(AppRoutes.welcome);
+      // Stay signed in — transient profile errors should not dump users on Welcome.
+      Navigator.of(context).pushReplacementNamed(AppRoutes.home);
     }
   }
 

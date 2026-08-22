@@ -1,5 +1,6 @@
-const express = require('express');
 const path = require('path');
+
+const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -8,19 +9,42 @@ const healthRouter = require('./routes/health');
 const authRouter = require('./routes/auth');
 const profileRouter = require('./routes/profile');
 const homeRouter = require('./routes/home');
-const onboardingRouter = require('./routes/onboarding');
 const featuresRouter = require('./routes/features');
 
 const app = express();
+const publicDir = path.join(__dirname, '../public');
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  }),
+);
 app.use(cors());
 app.use(express.json({ limit: '12mb' }));
 app.use(morgan('dev'));
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(publicDir));
 
-app.get('/privacy-policy', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/privacy-policy.html'));
+app.get('/auth/email-confirmed', (req, res) => {
+  res.sendFile(path.join(publicDir, 'auth', 'email-confirmed.html'));
+});
+
+app.get('/auth/reset-password', (req, res) => {
+  res.sendFile(path.join(publicDir, 'auth', 'reset-password.html'));
+});
+
+app.get('/auth/client-config.json', (req, res) => {
+  const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
+  const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || '').trim();
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return res.status(503).json({
+      message: 'Set SUPABASE_URL and SUPABASE_ANON_KEY on the backend.',
+    });
+  }
+  return res.json({ supabaseUrl, supabaseAnonKey });
+});
+
+app.get('/auth/confirm', (req, res) => {
+  res.redirect(302, `/auth/email-confirmed${req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''}`);
 });
 
 app.get('/', (req, res) => {
@@ -28,6 +52,11 @@ app.get('/', (req, res) => {
     service: 'slot-1-tasks-backend',
     status: 'ok',
     message: 'Backend is running. Use the API routes below.',
+    pages: {
+      emailConfirmed: 'GET /auth/email-confirmed',
+      passwordReset: 'GET /auth/reset-password',
+      privacyPolicy: 'GET /privacy-policy.html',
+    },
     endpoints: {
       health: 'GET /api/health',
       signup: 'POST /api/auth/signup',
@@ -39,10 +68,7 @@ app.get('/', (req, res) => {
       updateProfile: 'PUT /api/profile/me',
       homeToday: 'GET /api/home/today',
       homeUpdate: 'PATCH /api/home/today',
-      homeRefreshAi: 'POST /api/home/today/refresh-ai',
-      onboardingAiSummary: 'POST /api/onboarding/ai-summary',
-      aiChat: 'POST /api/features/ai/chat',
-      aiTranscribe: 'POST /api/features/ai/transcribe',
+      aiTool: 'POST /api/features/ai/tool',
       quickCapture: 'POST /api/features/captures',
       foodSearch: 'GET /api/features/foods/search?query=',
       journey: 'GET /api/features/journey',
@@ -55,7 +81,6 @@ app.use('/api/health', healthRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/profile', profileRouter);
 app.use('/api/home', homeRouter);
-app.use('/api/onboarding', onboardingRouter);
 app.use('/api/features', featuresRouter);
 
 app.use((req, res) => {

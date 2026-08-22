@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import 'package:slot_1_tasks/features/home/presentation/pages/journey_report_page.dart';
 import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_background.dart';
@@ -15,10 +17,11 @@ class JourneyTab extends StatefulWidget {
 class JourneyTabState extends State<JourneyTab> {
   final _api = FeatureService();
   List<Map<String, dynamic>> _trends = [];
+  List<Map<String, dynamic>> _timeline = [];
   Map<String, dynamic>? _todayReview;
   bool _loading = true;
-  bool _reporting = false;
-  String? _reportingPeriod;
+  bool _showAllMoods = false;
+  bool _showAllJournals = false;
 
   @override
   void initState() {
@@ -37,6 +40,9 @@ class JourneyTabState extends State<JourneyTab> {
         _trends = ((data['trends'] as List?) ?? [])
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
+        _timeline = ((data['timeline'] as List?) ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
         _loading = false;
       });
     } catch (error) {
@@ -48,120 +54,13 @@ class JourneyTabState extends State<JourneyTab> {
 
   Future<void> refresh() => _load();
 
-  Future<void> _review(String period) async {
-    setState(() {
-      _reporting = true;
-      _reportingPeriod = period;
-    });
-    try {
-      final data = await _api.post('journey/review', {'period': period});
-      if (!mounted) return;
-      setState(() {
-        _reporting = false;
-        _reportingPeriod = null;
-      });
-      final report = Map<String, dynamic>.from(data['report'] as Map? ?? {});
-      await _showReport(report);
-      await _load();
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _reporting = false;
-        _reportingPeriod = null;
-      });
-      _toast(error);
-    }
-  }
-
-  Future<void> _showReport(Map<String, dynamic> report) {
-    final highlights =
-        ((report['highlights'] as List?) ?? []).map((e) => e.toString());
-    final next = ((report['next_steps'] as List?) ?? [])
-        .map((e) => e.toString())
-        .followedBy(
-          ((report['actions'] as List?) ?? []).map((e) => e.toString()),
-        )
-        .toSet()
-        .toList();
-    final source = report['source']?.toString() ?? 'openai';
-    final isRules = source == 'rules';
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: .72,
-        maxChildSize: .92,
-        builder: (context, controller) => ListView(
-          controller: controller,
-          padding: const EdgeInsets.all(22),
-          children: [
-            Text(
-              report['title']?.toString() ?? 'Progress Review',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            if (isRules) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Text(
-                  'From your logs',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.primary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 14),
-            Text(
-              report['summary']?.toString() ?? '',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    height: 1.5,
-                    color: AppColors.textSecondary,
-                  ),
-            ),
-            if (highlights.isNotEmpty) ...[
-              const SizedBox(height: 18),
-              HarmoniousSectionHeader(title: 'Highlights'),
-              const SizedBox(height: 8),
-              for (final item in highlights)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    '• $item',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-            ],
-            if (next.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              HarmoniousSectionHeader(title: 'Next steps'),
-              const SizedBox(height: 8),
-              for (final item in next)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    '• $item',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-            ],
-          ],
+  void _openReport(String title, String period) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => JourneyReportPage(
+          title: title,
+          period: period,
+          trends: _trends,
         ),
       ),
     );
@@ -240,6 +139,134 @@ class JourneyTabState extends State<JourneyTab> {
     return _trends.sublist(_trends.length - 14);
   }
 
+  List<_MoodHistoryItem> get _moodHistory {
+    final items = <_MoodHistoryItem>[];
+    final seenDays = <String>{};
+
+    for (final entry in _timeline) {
+      if (entry['type']?.toString() != 'mood') continue;
+      final payload = entry['payload'] is Map
+          ? Map<String, dynamic>.from(entry['payload'] as Map)
+          : <String, dynamic>{};
+      final mood = (payload['mood'] ?? entry['detail'])?.toString().trim();
+      if (mood == null || mood.isEmpty) continue;
+      final at = DateTime.tryParse(entry['captured_at']?.toString() ?? '');
+      if (at == null) continue;
+      final dayKey = _dayKey(at);
+      items.add(_MoodHistoryItem(at: at, mood: mood));
+      seenDays.add(dayKey);
+    }
+
+    for (final row in _trends.reversed) {
+      final mood = row['mood']?.toString().trim();
+      if (mood == null || mood.isEmpty) continue;
+      final raw = row['log_date']?.toString() ?? '';
+      final dayKey = raw.length >= 10 ? raw.substring(0, 10) : raw;
+      if (dayKey.isEmpty || seenDays.contains(dayKey)) continue;
+      final at = DateTime.tryParse(dayKey) ?? DateTime.now();
+      items.add(_MoodHistoryItem(at: at, mood: mood));
+      seenDays.add(dayKey);
+    }
+
+    items.sort((a, b) => b.at.compareTo(a.at));
+    return items;
+  }
+
+  List<_JournalHistoryItem> get _journalHistory {
+    final items = <_JournalHistoryItem>[];
+    for (final entry in _timeline) {
+      if (entry['type']?.toString() != 'journal') continue;
+      final payload = entry['payload'] is Map
+          ? Map<String, dynamic>.from(entry['payload'] as Map)
+          : <String, dynamic>{};
+      final text = (payload['text'] ?? entry['detail'] ?? '').toString().trim();
+      if (text.isEmpty) continue;
+      final at = DateTime.tryParse(entry['captured_at']?.toString() ?? '');
+      if (at == null) continue;
+      items.add(
+        _JournalHistoryItem(
+          id: entry['id']?.toString() ?? at.toIso8601String(),
+          at: at,
+          text: text,
+        ),
+      );
+    }
+    items.sort((a, b) => b.at.compareTo(a.at));
+    return items;
+  }
+
+  String _dayKey(DateTime date) {
+    final local = date.toLocal();
+    return '${local.year.toString().padLeft(4, '0')}-'
+        '${local.month.toString().padLeft(2, '0')}-'
+        '${local.day.toString().padLeft(2, '0')}';
+  }
+
+  Color _moodColor(String mood) {
+    final value = mood.toLowerCase();
+    if (value.contains('great') ||
+        value.contains('happy') ||
+        value.contains('good') ||
+        value.contains('amazing') ||
+        value.contains('excellent')) {
+      return AppColors.mint;
+    }
+    if (value.contains('sad') ||
+        value.contains('low') ||
+        value.contains('awful') ||
+        value.contains('terrible') ||
+        value.contains('anxious') ||
+        value.contains('stress')) {
+      return AppColors.coral;
+    }
+    return AppColors.lavenderBright;
+  }
+
+  void _openJournalEntry(_JournalHistoryItem entry) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 16, 22, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                DateFormat('EEEE, MMMM d · h:mm a').format(entry.at.toLocal()),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                entry.text,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      height: 1.55,
+                      fontSize: 15,
+                    ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final review = _reviewFromTrends;
@@ -278,6 +305,12 @@ class JourneyTabState extends State<JourneyTab> {
                     ),
                     const SizedBox(height: 12),
                     _progressGrid(),
+                    const HarmoniousSectionDivider(),
+                    const SizedBox(height: 12),
+                    _moodHistorySection(),
+                    const HarmoniousSectionDivider(),
+                    const SizedBox(height: 12),
+                    _journalHistorySection(),
                     const HarmoniousSectionDivider(),
                     const SizedBox(height: 12),
                     _reports(),
@@ -492,7 +525,123 @@ class JourneyTabState extends State<JourneyTab> {
           ],
         ),
         const SizedBox(height: 12),
-        _moodTrend(data),
+      ],
+    );
+  }
+
+  Widget _moodHistorySection() {
+    final moods = _moodHistory;
+    final visible = _showAllMoods ? moods : moods.take(8).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const HarmoniousSectionHeader(
+          title: 'Mood history',
+          subtitle: 'How you’ve been feeling over time.',
+        ),
+        const SizedBox(height: 12),
+        if (moods.isEmpty)
+          const HarmoniousCard(
+            child: HarmoniousEmptyState(
+              icon: Icons.sentiment_satisfied_alt_outlined,
+              title: 'No moods logged yet',
+              message: 'Log your mood from Add to build a history here.',
+              compact: true,
+            ),
+          )
+        else
+          HarmoniousCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (var i = 0; i < visible.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: AppColors.cardBorder.withValues(alpha: 0.85),
+                    ),
+                  _MoodHistoryRow(
+                    item: visible[i],
+                    color: _moodColor(visible[i].mood),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        if (moods.length > 8)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => setState(() => _showAllMoods = !_showAllMoods),
+              child: Text(
+                _showAllMoods
+                    ? 'Show less'
+                    : 'Show ${moods.length - 8} more',
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _journalHistorySection() {
+    final journals = _journalHistory;
+    final visible = _showAllJournals ? journals : journals.take(6).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const HarmoniousSectionHeader(
+          title: 'Journal history',
+          subtitle: 'Past reflections you’ve saved.',
+        ),
+        const SizedBox(height: 12),
+        if (journals.isEmpty)
+          const HarmoniousCard(
+            child: HarmoniousEmptyState(
+              icon: Icons.edit_note_outlined,
+              title: 'No journal entries yet',
+              message: 'Write a note from Today or Add to see entries here.',
+              compact: true,
+            ),
+          )
+        else
+          HarmoniousCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (var i = 0; i < visible.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: AppColors.cardBorder.withValues(alpha: 0.85),
+                    ),
+                  _JournalHistoryRow(
+                    item: visible[i],
+                    onTap: () => _openJournalEntry(visible[i]),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        if (journals.length > 6)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () =>
+                  setState(() => _showAllJournals = !_showAllJournals),
+              child: Text(
+                _showAllJournals
+                    ? 'Show less'
+                    : 'Show ${journals.length - 6} more',
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -559,63 +708,6 @@ class JourneyTabState extends State<JourneyTab> {
     );
   }
 
-  Widget _moodTrend(List<Map<String, dynamic>> data) {
-    final moods = <String>[
-      for (final row in data)
-        if ((row['mood']?.toString() ?? '').isNotEmpty) row['mood'].toString(),
-    ];
-    return HarmoniousCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Mood trends',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: AppColors.textPrimary,
-                ),
-          ),
-          const SizedBox(height: 10),
-          if (moods.isEmpty)
-            Text(
-              'Log mood from Add to see trends here.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                  ),
-            )
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final mood in moods.take(14))
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.mint.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(99),
-                      border: Border.all(
-                        color: AppColors.mint.withValues(alpha: 0.35),
-                      ),
-                    ),
-                    child: Text(
-                      mood,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontSize: 12,
-                          ),
-                    ),
-                  ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _reports() {
     final reports = [
       ('Weekly review', 'Weekly', 'Last 7 days'),
@@ -627,8 +719,7 @@ class JourneyTabState extends State<JourneyTab> {
       children: [
         const HarmoniousSectionHeader(
           title: 'Reports',
-          subtitle:
-              'Summaries from your logs. AI when available, otherwise rule-based.',
+          subtitle: 'Charts from your activity logs.',
         ),
         const SizedBox(height: 12),
         for (final report in reports)
@@ -636,7 +727,7 @@ class JourneyTabState extends State<JourneyTab> {
             padding: const EdgeInsets.only(bottom: 10),
             child: HarmoniousCard(
               padding: const EdgeInsets.all(15),
-              onTap: _reporting ? null : () => _review(report.$2),
+              onTap: () => _openReport(report.$1, report.$2),
               child: Row(
                 children: [
                   Container(
@@ -647,7 +738,7 @@ class JourneyTabState extends State<JourneyTab> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
-                      Icons.auto_awesome_rounded,
+                      Icons.show_chart_outlined,
                       color: AppColors.primaryBright,
                       size: 20,
                     ),
@@ -674,21 +765,158 @@ class JourneyTabState extends State<JourneyTab> {
                       ],
                     ),
                   ),
-                  _reporting && _reportingPeriod == report.$2
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.textMuted,
-                        ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textMuted,
+                  ),
                 ],
               ),
             ),
           ),
       ],
+    );
+  }
+}
+
+class _MoodHistoryItem {
+  const _MoodHistoryItem({required this.at, required this.mood});
+
+  final DateTime at;
+  final String mood;
+}
+
+class _JournalHistoryItem {
+  const _JournalHistoryItem({
+    required this.id,
+    required this.at,
+    required this.text,
+  });
+
+  final String id;
+  final DateTime at;
+  final String text;
+}
+
+class _MoodHistoryRow extends StatelessWidget {
+  const _MoodHistoryRow({required this.item, required this.color});
+
+  final _MoodHistoryItem item;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.sentiment_satisfied_alt_outlined, size: 17, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              DateFormat('EEE, MMM d · h:mm a').format(item.at.toLocal()),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(99),
+              border: Border.all(color: color.withValues(alpha: 0.35)),
+            ),
+            child: Text(
+              item.mood,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JournalHistoryRow extends StatelessWidget {
+  const _JournalHistoryRow({required this.item, required this.onTap});
+
+  final _JournalHistoryItem item;
+  final VoidCallback onTap;
+
+  String _preview(String text) {
+    final compact = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (compact.length <= 100) return compact;
+    return '${compact.substring(0, 97)}…';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.lavender.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.edit_note_outlined,
+                size: 17,
+                color: AppColors.lavenderBright,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    DateFormat('EEE, MMM d · h:mm a').format(item.at.toLocal()),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _preview(item.text),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontSize: 14,
+                          height: 1.35,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textMuted,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' as intl;
 
+import 'package:slot_1_tasks/core/services/cosmic_checkin_service.dart';
 import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/services/health_snapshot_service.dart';
 import 'package:slot_1_tasks/core/services/home_service.dart';
+import 'package:slot_1_tasks/core/services/profile_service.dart';
 import 'package:slot_1_tasks/core/services/streak_service.dart';
 import 'package:slot_1_tasks/core/services/wellness_score_service.dart';
+import 'package:slot_1_tasks/core/astrology/cosmic_checkin.dart';
+import 'package:slot_1_tasks/core/astrology/zodiac_sign.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/emotional_support_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/journal_page.dart';
+import 'package:slot_1_tasks/features/home/presentation/widgets/cosmic_checkin_card.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/health_snapshot_card.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/mood_entertainment_card.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/quick_add_sheet.dart';
@@ -21,14 +26,11 @@ class TodayTab extends StatefulWidget {
   const TodayTab({
     super.key,
     this.onDataChanged,
-    this.onOpenChat,
-    this.onOpenAiTab,
+    this.onOpenToolsTab,
   });
 
-  final Future<void> Function({bool refreshAi, bool includeToday})?
-      onDataChanged;
-  final Future<void> Function()? onOpenChat;
-  final VoidCallback? onOpenAiTab;
+  final Future<void> Function({bool includeToday})? onDataChanged;
+  final VoidCallback? onOpenToolsTab;
 
   @override
   TodayTabState createState() => TodayTabState();
@@ -37,6 +39,8 @@ class TodayTab extends StatefulWidget {
 class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
   final _home = HomeService();
   final _features = FeatureService();
+  final _profiles = ProfileService();
+  final _cosmic = CosmicCheckInService();
   final _streakService = StreakService();
   final _snapshotService = HealthSnapshotService();
   final _scroll = ScrollController();
@@ -52,6 +56,7 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
   String? _error;
   bool _loading = true;
   bool _busy = false;
+  CosmicCheckIn? _cosmicCheckIn;
 
   late final AnimationController _entrance;
 
@@ -72,8 +77,7 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  Future<void> reload({bool refreshAi = false, bool silent = false}) =>
-      _load(refreshAi: refreshAi, silent: silent);
+  Future<void> reload({bool silent = false}) => _load(silent: silent);
 
   void applyHome(Map<String, dynamic> home) {
     if (!mounted) return;
@@ -139,7 +143,7 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
     setState(() => _activeFocus = focus);
   }
 
-  Future<void> _load({bool refreshAi = false, bool silent = false}) async {
+  Future<void> _load({bool silent = false}) async {
     if (!silent) {
       setState(() {
         _loading = true;
@@ -148,13 +152,16 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
     }
     try {
       final results = await Future.wait([
-        refreshAi ? _home.refreshAi() : _home.fetchToday(),
+        _home.fetchToday(),
         _features.get('captures?limit=100'),
+        _loadCosmicCheckIn(),
       ]);
       final data = results[0] as HomeDashboard;
       final capturesResult = results[1] as Map<String, dynamic>;
+      final cosmic = results[2] as CosmicCheckIn?;
       final captures = (capturesResult['captures'] as List?) ?? const [];
       if (!mounted) return;
+      setState(() => _cosmicCheckIn = cosmic);
       await _refreshDerivedMetrics(data, captures: captures);
       if (!silent) _entrance.forward(from: 0);
     } catch (e) {
@@ -165,6 +172,19 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
           _error = e.toString().replaceFirst('Exception: ', '');
         }
       });
+    }
+  }
+
+  Future<CosmicCheckIn?> _loadCosmicCheckIn() async {
+    try {
+      final profile = await _profiles.fetchCurrentProfile();
+      final sign = ZodiacSign.fromId(profile?.zodiacSign) ??
+          (profile?.birthday != null
+              ? ZodiacSign.fromBirthday(profile!.birthday!)
+              : null);
+      return _cosmic.forSign(sign);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -229,7 +249,7 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
   }
 
   void _dirtyNotify() {
-    widget.onDataChanged?.call(refreshAi: false, includeToday: false);
+    widget.onDataChanged?.call(includeToday: false);
   }
 
   Future<void> _openJournalPage() async {
@@ -437,7 +457,7 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
                 : RefreshIndicator(
                     color: AppColors.cyanAccent,
                     // Pull-to-refresh reloads tracked data only — no OpenAI.
-                    onRefresh: () => _load(refreshAi: false),
+                    onRefresh: () => _load(),
                     child: CustomScrollView(
                       controller: _scroll,
                       physics: const AlwaysScrollableScrollPhysics(
@@ -455,9 +475,19 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
                                   name: _data!.greetingName,
                                 ),
                               ),
+                              if (_cosmicCheckIn != null) ...[
+                                const SizedBox(height: 20),
+                                _fadeSlide(
+                                  1,
+                                  CosmicCheckInCard(checkIn: _cosmicCheckIn!),
+                                ),
+                              ],
                               if (_streak != null && _wellness != null) ...[
                                 const SizedBox(height: 20),
-                                _fadeSlide(1, StreakCard(streak: _streak!)),
+                                _fadeSlide(
+                                  _cosmicCheckIn != null ? 2 : 1,
+                                  StreakCard(streak: _streak!),
+                                ),
                                 const SizedBox(height: 12),
                                 _fadeSlide(
                                   2,
@@ -594,30 +624,10 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
                               const SizedBox(height: 24),
                               _fadeSlide(
                                 9,
-                                _AiBrief(
+                                _WellnessFocusCard(
                                   brief: _data!.today.aiBrief,
-                                  aiEnabled: _data!.aiEnabled,
-                                  regenerating: _busy,
-                                  onChat: () {
-                                    widget.onOpenChat?.call();
-                                  },
                                   onPlan: _scrollToPlan,
-                                  onGenerateAi: _data!.aiEnabled
-                                      ? () async {
-                                          if (_busy) return;
-                                          setState(() => _busy = true);
-                                          try {
-                                            await _load(
-                                              refreshAi: true,
-                                              silent: true,
-                                            );
-                                          } finally {
-                                            if (mounted) {
-                                              setState(() => _busy = false);
-                                            }
-                                          }
-                                        }
-                                      : null,
+                                  onOpenTools: widget.onOpenToolsTab,
                                 ),
                               ),
                             ]),
@@ -1047,28 +1057,20 @@ class _CircularGaugePainter extends CustomPainter {
       oldDelegate.progress != progress;
 }
 
-class _AiBrief extends StatelessWidget {
-  const _AiBrief({
+class _WellnessFocusCard extends StatelessWidget {
+  const _WellnessFocusCard({
     required this.brief,
-    required this.onChat,
     required this.onPlan,
-    this.aiEnabled = false,
-    this.regenerating = false,
-    this.onGenerateAi,
+    this.onOpenTools,
   });
 
   final Map<String, dynamic> brief;
-  final bool aiEnabled;
-  final bool regenerating;
-  final VoidCallback onChat;
   final VoidCallback onPlan;
-  final VoidCallback? onGenerateAi;
+  final VoidCallback? onOpenTools;
 
   @override
   Widget build(BuildContext context) {
-    final title = (brief['title'] as String?) ?? "Wellness Focus";
-    final source = (brief['source'] as String?) ?? 'rules';
-    final isAi = source == 'openai';
+    final title = (brief['title'] as String?) ?? 'Wellness focus';
     final items = ((brief['focus_items'] as List?) ?? [])
         .map((e) => e.toString())
         .where((e) => e.trim().isNotEmpty)
@@ -1084,7 +1086,7 @@ class _AiBrief extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.auto_awesome_outlined,
+                Icons.lightbulb_outline_rounded,
                 size: 18,
                 color: AppColors.cyanAccent.withValues(alpha: 0.9),
               ),
@@ -1100,27 +1102,6 @@ class _AiBrief extends StatelessWidget {
                       ),
                 ),
               ),
-              if (isAi)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.cyanAccent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: AppColors.cyanAccent.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: Text(
-                    'AI',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.cyanAccent,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                        ),
-                  ),
-                ),
             ],
           ),
           if (items.isNotEmpty) ...[
@@ -1192,8 +1173,8 @@ class _AiBrief extends StatelessWidget {
             children: [
               Expanded(
                 child: _PrimaryAction(
-                  label: 'Chat with AI',
-                  onTap: onChat,
+                  label: 'Tools',
+                  onTap: onOpenTools ?? onPlan,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1205,30 +1186,6 @@ class _AiBrief extends StatelessWidget {
               ),
             ],
           ),
-          if (aiEnabled && onGenerateAi != null) ...[
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton.icon(
-                onPressed: regenerating ? null : onGenerateAi,
-                icon: regenerating
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.auto_awesome_outlined, size: 16),
-                label: Text(
-                  regenerating
-                      ? 'Generating…'
-                      : (isAi ? 'Refresh with AI' : 'Generate with AI'),
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.cyanAccent,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );

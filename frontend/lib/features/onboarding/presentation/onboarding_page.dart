@@ -13,6 +13,7 @@ import 'package:slot_1_tasks/features/onboarding/presentation/steps/health_step.
 import 'package:slot_1_tasks/features/onboarding/presentation/steps/pulse_step.dart';
 import 'package:slot_1_tasks/features/onboarding/presentation/steps/summary_step.dart';
 import 'package:slot_1_tasks/features/onboarding/presentation/steps/welcome_step.dart';
+import 'package:slot_1_tasks/features/onboarding/presentation/steps/zodiac_step.dart';
 import 'package:slot_1_tasks/features/onboarding/presentation/widgets/onboarding_widgets.dart';
 
 /// Short conversational flow (~2 min).
@@ -22,6 +23,7 @@ enum _Step {
   goals,
   goalDetails,
   pulse,
+  zodiac,
   habits,
   health,
   food,
@@ -52,6 +54,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     _Step.goals,
     _Step.goalDetails,
     _Step.pulse,
+    _Step.zodiac,
     _Step.habits,
     _Step.health,
     _Step.food,
@@ -164,6 +167,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
         );
       case _Step.pulse:
         return PulseStep(draft: _draft, onContinue: _goNext);
+      case _Step.zodiac:
+        return ZodiacStep(draft: _draft, onContinue: _goNext);
       case _Step.habits:
         return HabitsStep(draft: _draft, onContinue: _goNext);
       case _Step.health:

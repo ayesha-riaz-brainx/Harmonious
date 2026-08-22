@@ -237,7 +237,15 @@ async function deleteAccount(req, res, next) {
     const supabase = getSupabaseAdmin();
     const userId = req.user.id;
 
-    await supabase.from('profiles').delete().eq('id', userId);
+    // Best-effort cleanup of user-owned rows before removing auth user.
+    await Promise.allSettled([
+      supabase.from('ai_messages').delete().eq('user_id', userId),
+      supabase.from('captures').delete().eq('user_id', userId),
+      supabase.from('daily_logs').delete().eq('user_id', userId),
+      supabase.from('password_resets').delete().eq('email', req.user.email),
+      supabase.from('profiles').delete().eq('id', userId),
+    ]);
+
     const { error } = await supabase.auth.admin.deleteUser(userId);
 
     if (error) {

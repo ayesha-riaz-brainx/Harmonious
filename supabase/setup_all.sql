@@ -28,6 +28,9 @@ alter table public.profiles
   add column if not exists activity_level text,
   add column if not exists birthday date;
 
+alter table public.profiles
+  add column if not exists zodiac_sign text;
+
 alter table public.profiles enable row level security;
 
 drop policy if exists "Users can read own profile" on public.profiles;

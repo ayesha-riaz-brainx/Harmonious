@@ -236,7 +236,7 @@ class _BmiAssessmentPageState extends State<BmiAssessmentPage> {
                   const HarmoniousSectionHeader(
                     title: 'Weight & BMI',
                     subtitle:
-                        'A simple WHO-style adult BMI check — no AI, just math. '
+                        'A simple WHO-style adult BMI check based on height and weight. '
                         'BMI is a screening tool, not a diagnosis.',
                   ),
                   const SizedBox(height: 22),

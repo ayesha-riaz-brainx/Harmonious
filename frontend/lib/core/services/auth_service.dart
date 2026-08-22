@@ -12,18 +12,21 @@ class AuthResult {
     required this.success,
     required this.message,
     this.signedIn = false,
+    this.needsEmailConfirmation = false,
     this.user,
   });
 
   factory AuthResult.success({
     required String message,
     bool signedIn = true,
+    bool needsEmailConfirmation = false,
     Map<String, dynamic>? user,
   }) {
     return AuthResult._(
       success: true,
       message: message,
       signedIn: signedIn,
+      needsEmailConfirmation: needsEmailConfirmation,
       user: user,
     );
   }
@@ -34,6 +37,7 @@ class AuthResult {
 
   final bool success;
   final bool signedIn;
+  final bool needsEmailConfirmation;
   final String message;
   final Map<String, dynamic>? user;
 }
@@ -107,7 +111,11 @@ class AuthService {
     if (error is AuthException) {
       final msg = error.message.toLowerCase();
       if (msg.contains('rate limit')) {
-        return 'Too many signup emails sent. Turn off “Confirm email” in Supabase Auth settings, then try again.';
+        return 'Too many emails sent. Please wait a minute, then try again.';
+      }
+      if (msg.contains('email not confirmed') ||
+          msg.contains('not confirmed')) {
+        return 'Please verify your email first. Open the link we sent, then sign in.';
       }
       if (msg.contains('invalid login') || msg.contains('invalid credentials')) {
         return 'Invalid email or password.';
@@ -259,6 +267,7 @@ class AuthService {
     final response = await _supabase.auth.signUp(
       email: email,
       password: password,
+      emailRedirectTo: ApiConfig.emailConfirmedPageUrl,
       data: {'full_name': fullName},
     );
 
@@ -287,17 +296,42 @@ class AuthService {
     }
 
     final signedIn = response.session != null;
+    final needsConfirm = !signedIn;
     return AuthResult.success(
       message: signedIn
           ? 'Account created successfully.'
-          : 'Account created. Check your email to confirm, then log in.',
+          : 'Account created. We sent a verification link to $email.',
       signedIn: signedIn,
+      needsEmailConfirmation: needsConfirm,
       user: {
         'id': user.id,
         'email': user.email,
         'fullName': fullName,
       },
     );
+  }
+
+  Future<AuthResult> resendSignupConfirmation({required String email}) async {
+    if (!SupabaseConfig.isConfigured) {
+      return AuthResult.failure(
+        'Supabase is not configured. Add keys to frontend/.env',
+      );
+    }
+
+    try {
+      await _supabase.auth.resend(
+        type: OtpType.signup,
+        email: email.trim().toLowerCase(),
+        emailRedirectTo: ApiConfig.emailConfirmedPageUrl,
+      );
+      return AuthResult.success(
+        message: 'Verification email resent. Check your inbox.',
+        signedIn: false,
+        needsEmailConfirmation: true,
+      );
+    } catch (error) {
+      return AuthResult.failure(_mapError(error));
+    }
   }
 
   Future<AuthResult> login({
@@ -335,59 +369,21 @@ class AuthService {
   }
 
   Future<AuthResult> forgotPassword({required String email}) async {
-    try {
-      final response = await http
-          .post(
-            ApiConfig.forgotPassword,
-            headers: const {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': email.trim().toLowerCase()}),
-          )
-          .timeout(const Duration(seconds: 30));
-      final body = response.body.isEmpty
-          ? <String, dynamic>{}
-          : jsonDecode(response.body) as Map<String, dynamic>;
-      if (response.statusCode >= 400) {
-        return AuthResult.failure(
-          body['message']?.toString() ?? 'Could not send reset code.',
-        );
-      }
-      return AuthResult.success(
-        message: body['message']?.toString() ??
-            'If an account exists, a reset code was sent.',
-        signedIn: false,
+    if (!SupabaseConfig.isConfigured) {
+      return AuthResult.failure(
+        'Supabase is not configured. Add keys to frontend/.env',
       );
-    } catch (error) {
-      return AuthResult.failure(_mapError(error));
     }
-  }
 
-  Future<AuthResult> resetPassword({
-    required String email,
-    required String code,
-    required String password,
-  }) async {
     try {
-      final response = await http
-          .post(
-            ApiConfig.resetPassword,
-            headers: const {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'email': email.trim().toLowerCase(),
-              'code': code.trim(),
-              'password': password,
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
-      final body = response.body.isEmpty
-          ? <String, dynamic>{}
-          : jsonDecode(response.body) as Map<String, dynamic>;
-      if (response.statusCode >= 400) {
-        return AuthResult.failure(
-          body['message']?.toString() ?? 'Could not reset password.',
-        );
-      }
+      await _supabase.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        redirectTo: ApiConfig.passwordResetPageUrl,
+      );
       return AuthResult.success(
-        message: body['message']?.toString() ?? 'Password updated.',
+        message:
+            'If an account exists for that email, we sent a reset link. '
+            'Open it, choose a new password, then sign in in the app.',
         signedIn: false,
       );
     } catch (error) {
@@ -411,15 +407,30 @@ class AuthService {
         return AuthResult.failure('Session expired. Please log in again.');
       }
 
-      // Soft-mark profile then sign out. Hard delete via backend if available.
-      await _supabase.from('profiles').delete().eq('id', user.id);
-      await _supabase.auth.signOut();
+      final response = await http
+          .delete(
+            ApiConfig.deleteAccount,
+            headers: ApiConfig.authHeaders(),
+          )
+          .timeout(const Duration(seconds: 45));
 
-      return AuthResult.success(
-        message:
-            'Signed out and profile removed. Ask an admin to fully delete the auth user if needed, or use the backend delete endpoint.',
-        signedIn: false,
-      );
+      final body = response.body.isNotEmpty
+          ? jsonDecode(response.body) as Map<String, dynamic>
+          : <String, dynamic>{};
+      final message =
+          (body['message'] as String?) ?? 'Unable to delete account.';
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        try {
+          await _supabase.auth.signOut();
+        } catch (_) {}
+        return AuthResult.success(
+          message: message,
+          signedIn: false,
+        );
+      }
+
+      return AuthResult.failure(message);
     } catch (error) {
       return AuthResult.failure(_mapError(error));
     }

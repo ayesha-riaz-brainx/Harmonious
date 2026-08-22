@@ -4,11 +4,34 @@ function apiToken() {
   return (process.env.MAILTRAP_API_TOKEN || '').trim();
 }
 
+function smtpHost() {
+  return (
+    (process.env.SMTP_HOST || '').trim() ||
+    (process.env.MAILTRAP_HOST || '').trim()
+  );
+}
+
+function smtpUser() {
+  return (
+    (process.env.SMTP_USER || '').trim() ||
+    (process.env.MAILTRAP_USER || '').trim()
+  );
+}
+
+function smtpPass() {
+  return (
+    (process.env.SMTP_PASS || '').trim() ||
+    (process.env.MAILTRAP_PASS || '').trim()
+  );
+}
+
 function smtpConfigured() {
+  const pass = smtpPass();
   return Boolean(
-    (process.env.MAILTRAP_USER || '').trim() &&
-      (process.env.MAILTRAP_PASS || '').trim() &&
-      !(process.env.MAILTRAP_PASS || '').includes('PASTE_'),
+    smtpHost() &&
+      smtpUser() &&
+      pass &&
+      !pass.includes('PASTE_'),
   );
 }
 
@@ -30,16 +53,21 @@ function parseFrom(fromRaw) {
 }
 
 function createTransport() {
-  const host =
-    (process.env.MAILTRAP_HOST || '').trim() || 'sandbox.smtp.mailtrap.io';
-  const port = Number(process.env.MAILTRAP_PORT || 2525);
+  const host = smtpHost() || 'sandbox.smtp.mailtrap.io';
+  const port = Number(
+    process.env.SMTP_PORT || process.env.MAILTRAP_PORT || 587,
+  );
+  const secure =
+    String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' ||
+    port === 465;
+
   return nodemailer.createTransport({
     host,
     port,
-    secure: false,
+    secure,
     auth: {
-      user: process.env.MAILTRAP_USER.trim(),
-      pass: process.env.MAILTRAP_PASS.trim(),
+      user: smtpUser(),
+      pass: smtpPass(),
     },
   });
 }
@@ -173,11 +201,17 @@ async function sendViaSmtp({ to, code }) {
 async function sendPasswordResetEmail({ to, code }) {
   if (!mailConfigured()) {
     const error = new Error(
-      'Mailtrap is not configured. Add MAILTRAP_API_TOKEN to backend/.env',
+      'Email is not configured. Set SMTP_HOST/SMTP_USER/SMTP_PASS (or Mailtrap) in backend/.env',
     );
     error.status = 503;
     error.code = 'MAIL_NOT_CONFIGURED';
     throw error;
+  }
+
+  // Prefer generic SMTP (Resend/SendGrid/etc.) when configured; else Mailtrap API.
+  if (smtpConfigured() && !apiToken()) {
+    await sendViaSmtp({ to, code });
+    return;
   }
 
   if (apiToken()) {

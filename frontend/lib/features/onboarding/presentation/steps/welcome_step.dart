@@ -58,7 +58,7 @@ class _WelcomeStepState extends State<WelcomeStep>
               const HarmoniousLogo(size: 96),
               const SizedBox(height: 28),
               Text(
-                'Meet Your AI Life Companion',
+                'Meet your wellness companion',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontSize: 30,

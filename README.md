@@ -25,6 +25,7 @@ Splash → (session?)
 ```bash
 cd frontend
 # ensure .env has SUPABASE_URL + SUPABASE_ANON_KEY
+# for store / real devices also set API_BASE_URL=https://your-deployed-api
 flutter pub get
 ./run_emulator.sh
 ```
@@ -37,6 +38,18 @@ cd backend
 npm install
 npm run dev
 ```
+
+## Store / production checklist
+
+1. Deploy `backend/` to a public HTTPS host (Render, Railway, Fly, VPS, etc.).
+2. In `frontend/.env` set `API_BASE_URL` to that URL (no trailing slash), then rebuild the APK/IPA.
+3. Supabase → Authentication → URL Configuration:
+   - **Site URL:** `https://harmonious.onrender.com/auth/email-confirmed`
+   - **Redirect URLs:** add both:
+     - `https://harmonious.onrender.com/auth/email-confirmed`
+     - `https://harmonious.onrender.com/auth/reset-password`
+4. Supabase → Authentication → Email Templates → **Confirm signup**: paste HTML from `backend/email-templates/confirm-signup.html` (subject: `Verify your Harmonious email`).
+5. On Render backend env, add `SUPABASE_ANON_KEY` (same anon key as `frontend/.env`) so `/auth/reset-password` works. **No SMTP needed** — sign-up and forgot-password emails are sent by Supabase.
 
 ### API
 

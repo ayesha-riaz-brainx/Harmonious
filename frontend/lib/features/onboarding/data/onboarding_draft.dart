@@ -42,11 +42,13 @@ class OnboardingDraft {
     this.exerciseTime,
     this.routineBedtime,
     this.daysOff = const [],
+    this.zodiacSign,
   });
 
   DateTime? birthday;
   int? age;
   String? gender;
+  String? zodiacSign;
   double? height;
   double? weight;
   String heightUnit;
@@ -147,6 +149,7 @@ class OnboardingDraft {
       'exercise_time': exerciseTime,
       'routine_bedtime': routineBedtime,
       'days_off': daysOff,
+      if (zodiacSign != null) 'zodiac_sign': zodiacSign,
     };
   }
 }

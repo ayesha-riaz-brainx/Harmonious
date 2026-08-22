@@ -15,13 +15,23 @@ class AppStrings {
   static const loginSubtitle = 'Sign in to continue.';
   static const forgotTitle = 'Reset password';
   static const forgotSubtitle =
-      'Enter your email and we’ll send a 6-digit reset code.';
+      'Enter your email and we’ll send a password reset link.';
+  static const checkEmailTitle = 'Check your email';
+  static const checkEmailSubtitle =
+      'Confirm your address to unlock Harmonious.';
+  static const openMailApp = 'Open mail app';
+  static const resendVerification = 'Resend verification email';
+  static const verifiedGoToLogin = 'I’ve verified — sign in';
+  static const emailSentNotice =
+      'Account created. We sent a verification link to your inbox.';
+  static const emailNotConfirmed =
+      'Please verify your email first. Open the link we sent, then sign in.';
   static const profileSetupTitle = 'Set up your profile';
   static const profileSetupSubtitle =
       'A few essentials so Harmonious can personalize your experience.';
-  static const onboardingTitle = 'Meet Your AI Life Companion';
+  static const onboardingTitle = 'Meet your wellness companion';
   static const onboardingSubtitle =
-      "I'll learn about your lifestyle to create a personalized health and wellbeing plan.";
+      'Tell us about your lifestyle so we can build a personalized health plan.';
   static const homeTitle = 'Home';
 
   static const fullNameLabel = 'FULL NAME';

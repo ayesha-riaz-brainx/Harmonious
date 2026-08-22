@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
-import 'package:slot_1_tasks/features/home/presentation/tabs/ai_tab.dart';
+import 'package:slot_1_tasks/features/home/presentation/tabs/tools_tab.dart';
 import 'package:slot_1_tasks/features/home/presentation/tabs/journey_tab.dart';
 import 'package:slot_1_tasks/features/home/presentation/tabs/today_tab.dart';
 import 'package:slot_1_tasks/features/home/presentation/tabs/you_tab.dart';
@@ -19,12 +19,12 @@ class _MainShellState extends State<MainShell> {
   bool _dirty = false;
   final _todayKey = GlobalKey<TodayTabState>();
   final _journeyKey = GlobalKey<JourneyTabState>();
-  final _aiKey = GlobalKey<AiTabState>();
+  final _toolsKey = GlobalKey<ToolsTabState>();
   late final List<Widget> _pages;
 
   static const _tabs = [
     _NavItem('Today', Icons.home_outlined, Icons.home_rounded),
-    _NavItem('AI', Icons.auto_awesome_outlined, Icons.auto_awesome_rounded),
+    _NavItem('Tools', Icons.spa_outlined, Icons.spa_rounded),
     _NavItem('Add', Icons.add_rounded, Icons.add_rounded),
     _NavItem(
       'Journey',
@@ -41,14 +41,13 @@ class _MainShellState extends State<MainShell> {
       TodayTab(
         key: _todayKey,
         onDataChanged: _onDataChanged,
-        onOpenChat: _openChat,
-        onOpenAiTab: () {
+        onOpenToolsTab: () {
           if (!mounted) return;
           setState(() => _index = 1);
         },
       ),
-      AiTab(
-        key: _aiKey,
+      ToolsTab(
+        key: _toolsKey,
         onDataChanged: _onDataChanged,
       ),
       const SizedBox.shrink(),
@@ -57,27 +56,13 @@ class _MainShellState extends State<MainShell> {
     ];
   }
 
-  Future<void> _onDataChanged({
-    bool refreshAi = false,
-    bool includeToday = true,
-  }) async {
-    // Never rebuild Journey/AI mid-capture — just mark dirty.
+  Future<void> _onDataChanged({bool includeToday = true}) async {
+    // Never rebuild Journey/Tools mid-capture — just mark dirty.
     _dirty = true;
     if (!mounted) return;
     if (includeToday) {
-      await _todayKey.currentState?.reload(
-        refreshAi: refreshAi,
-        silent: true,
-      );
+      await _todayKey.currentState?.reload(silent: true);
     }
-  }
-
-  Future<void> _openChat() async {
-    if (!mounted) return;
-    setState(() => _index = 1);
-    await Future<void>.delayed(Duration.zero);
-    if (!mounted) return;
-    await _aiKey.currentState?.openChat();
   }
 
   void _toast(String message) {
@@ -142,7 +127,7 @@ class _MainShellState extends State<MainShell> {
     if (index == 0) {
       await _todayKey.currentState?.reload(silent: true);
     } else if (index == 1) {
-      await _aiKey.currentState?.reload();
+      await _toolsKey.currentState?.reload();
     } else if (index == 3) {
       await _journeyKey.currentState?.refresh();
     }

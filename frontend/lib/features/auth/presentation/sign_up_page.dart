@@ -5,6 +5,7 @@ import 'package:slot_1_tasks/core/constants/app_routes.dart';
 import 'package:slot_1_tasks/core/constants/app_strings.dart';
 import 'package:slot_1_tasks/core/services/auth_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
+import 'package:slot_1_tasks/shared/widgets/auth_notice.dart';
 import 'package:slot_1_tasks/shared/widgets/auth_screen_scaffold.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_gradient_button.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_text_field.dart';
@@ -57,20 +58,38 @@ class _SignUpPageState extends State<SignUpPage> {
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result.message)),
-    );
-
-    if (!result.success) return;
-
-    if (result.signedIn) {
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        AppRoutes.profileSetup,
-        (route) => false,
+    if (!result.success) {
+      AuthNotice.show(
+        context,
+        message: result.message,
+        tone: AuthNoticeTone.error,
       );
-    } else {
-      Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+      return;
     }
+
+    if (result.needsEmailConfirmation || !result.signedIn) {
+      AuthNotice.show(
+        context,
+        message: AppStrings.emailSentNotice,
+        tone: AuthNoticeTone.warning,
+        duration: const Duration(seconds: 5),
+      );
+      Navigator.of(context).pushReplacementNamed(
+        AppRoutes.checkEmail,
+        arguments: _emailController.text.trim().toLowerCase(),
+      );
+      return;
+    }
+
+    AuthNotice.show(
+      context,
+      message: result.message,
+      tone: AuthNoticeTone.success,
+    );
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.profileSetup,
+      (route) => false,
+    );
   }
 
   @override

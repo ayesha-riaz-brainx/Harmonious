@@ -22,7 +22,7 @@ class SummaryStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         OnboardingStepHeader(
-          eyebrow: 'Your AI profile',
+          eyebrow: 'Your wellness profile',
           title: 'Here’s your starting plan',
           subtitle: profile.message,
         ),
