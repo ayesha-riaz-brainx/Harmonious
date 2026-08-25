@@ -27,7 +27,6 @@ class _YouTabState extends State<YouTab> {
   final _auth = AuthService();
   final _api = FeatureService();
   Map<String, dynamic> _profile = {};
-  Map<String, dynamic> _health = {};
   List<String> _goals = [];
   bool _loading = true;
   bool _busy = false;
@@ -43,10 +42,23 @@ class _YouTabState extends State<YouTab> {
       final data = await _api.get('settings');
       if (!mounted) return;
       setState(() {
-        _profile = Map<String, dynamic>.from(data['profile'] as Map? ?? {});
-        _health = Map<String, dynamic>.from(data['health_info'] as Map? ?? {});
+        final rawProfile =
+            Map<String, dynamic>.from(data['profile'] as Map? ?? {});
+        final onboarding = Map<String, dynamic>.from(
+          (data['onboarding_data'] as Map?) ??
+              (rawProfile['onboarding_data'] as Map?) ??
+              const {},
+        );
+        _profile = _hydrateProfile(rawProfile, onboarding);
         _goals =
             ((data['goals'] as List?) ?? []).map((e) => e.toString()).toList();
+        if (_goals.isEmpty) {
+          final fromOnboarding = (onboarding['goals'] as List?) ?? [];
+          _goals = fromOnboarding
+              .map((e) => e.toString())
+              .where((e) => e.isNotEmpty)
+              .toList();
+        }
         _loading = false;
       });
     } catch (error) {
@@ -56,14 +68,66 @@ class _YouTabState extends State<YouTab> {
     }
   }
 
+  Map<String, dynamic> _hydrateProfile(
+    Map<String, dynamic> profile,
+    Map<String, dynamic> onboarding,
+  ) {
+    String? pick(String key, [List<String>? aliases]) {
+      final current = profile[key];
+      if (current != null && current.toString().trim().isNotEmpty) {
+        return current.toString();
+      }
+      for (final alias in aliases ?? [key]) {
+        final value = onboarding[alias];
+        if (value != null && value.toString().trim().isNotEmpty) {
+          return value.toString();
+        }
+      }
+      return current?.toString();
+    }
+
+    num? pickNum(String key) {
+      final current = profile[key];
+      if (current is num) return current;
+      if (current != null) {
+        final parsed = num.tryParse(current.toString());
+        if (parsed != null) return parsed;
+      }
+      final fromOnboarding = onboarding[key];
+      if (fromOnboarding is num) return fromOnboarding;
+      return num.tryParse(fromOnboarding?.toString() ?? '');
+    }
+
+    return {
+      ...profile,
+      'display_name': pick('display_name', ['display_name', 'name', 'full_name']),
+      'full_name': pick('full_name', ['full_name', 'display_name', 'name']),
+      'age': pickNum('age') ?? profile['age'],
+      'height': pickNum('height') ?? profile['height'],
+      'weight': pickNum('weight') ?? profile['weight'],
+      'gender': pick('gender') ?? profile['gender'],
+      'height_unit': pick('height_unit') ?? profile['height_unit'] ?? 'cm',
+      'weight_unit': pick('weight_unit') ?? profile['weight_unit'] ?? 'kg',
+      'activity_level':
+          pick('activity_level') ?? profile['activity_level'],
+      'goals': onboarding['goals'] ?? profile['goals'],
+    };
+  }
+
   Future<void> _save(Map<String, dynamic> patch) async {
     setState(() => _busy = true);
     try {
       final data = await _api.patch('settings', patch);
       if (!mounted) return;
       setState(() {
-        _profile = Map<String, dynamic>.from(data['profile'] as Map? ?? {});
-        _health = Map<String, dynamic>.from(data['health_info'] as Map? ?? {});
+        final rawProfile =
+            Map<String, dynamic>.from(data['profile'] as Map? ?? {});
+        final onboarding = Map<String, dynamic>.from(
+          (data['onboarding_data'] as Map?) ??
+              (rawProfile['onboarding_data'] as Map?) ??
+              const {},
+        );
+        _profile = _hydrateProfile(rawProfile, onboarding);
         _goals =
             ((data['goals'] as List?) ?? []).map((e) => e.toString()).toList();
       });
@@ -77,69 +141,24 @@ class _YouTabState extends State<YouTab> {
   }
 
   Future<void> _editProfile() async {
-    final name = TextEditingController(
-      text: _profile['display_name']?.toString() ?? '',
-    );
-    final age = TextEditingController(text: _profile['age']?.toString() ?? '');
-    final height =
-        TextEditingController(text: _profile['height']?.toString() ?? '');
-    final weight =
-        TextEditingController(text: _profile['weight']?.toString() ?? '');
-    final result = await showDialog<Map<String, dynamic>>(
+    final result = await showDialog<_ProfileEditResult>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Edit profile'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _field(name, 'Name'),
-              _field(age, 'Age', number: true),
-              _field(height, 'Height', number: true),
-              _field(weight, 'Weight', number: true),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, {
-              'display_name': name.text.trim(),
-              'age': int.tryParse(age.text.trim()),
-              'height': double.tryParse(height.text.trim()),
-              'weight': double.tryParse(weight.text.trim()),
-            }),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      builder: (context) => _ProfileEditDialog(profile: _profile),
     );
-    name.dispose();
-    age.dispose();
-    height.dispose();
-    weight.dispose();
-    if (result != null) await _save({'profile': result});
-  }
+    if (result == null || !mounted) return;
 
-  Widget _field(
-    TextEditingController controller,
-    String label, {
-    bool number = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: TextField(
-        controller: controller,
-        keyboardType: number
-            ? const TextInputType.numberWithOptions(decimal: true)
-            : TextInputType.text,
-        decoration: InputDecoration(labelText: label),
-      ),
-    );
+    final profilePatch = <String, dynamic>{};
+    if (result.name.trim().isNotEmpty) {
+      profilePatch['display_name'] = result.name.trim();
+    }
+    if (result.age != null) profilePatch['age'] = result.age;
+    if (result.height != null) profilePatch['height'] = result.height;
+    if (result.weight != null) profilePatch['weight'] = result.weight;
+    if (profilePatch.isEmpty) {
+      _toast('Nothing to save.');
+      return;
+    }
+    await _save({'profile': profilePatch});
   }
 
   Future<void> _editGoals() async {
@@ -166,11 +185,29 @@ class _YouTabState extends State<YouTab> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Current goals',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  Row(
+                    children: [
+                      IconButton(
+                        tooltip: 'Back',
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'Current goals',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -229,64 +266,6 @@ class _YouTabState extends State<YouTab> {
     custom.dispose();
     if (result != null) await _save({'goals': result});
   }
-
-  Future<void> _editHealth() async {
-    final conditions = TextEditingController(
-      text: (_health['conditions'] as List?)?.join(', ') ?? '',
-    );
-    final medications = TextEditingController(
-      text: (_health['medications'] as List?)?.join(', ') ?? '',
-    );
-    final history = TextEditingController(
-      text: _health['medical_history']?.toString() ?? '',
-    );
-    final documents = TextEditingController(
-      text: (_health['documents'] as List?)?.join(', ') ?? '',
-    );
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Health information'),
-        content: SingleChildScrollView(
-          child: Column(
-            children: [
-              _field(conditions, 'Conditions (comma separated)'),
-              _field(medications, 'Medications (comma separated)'),
-              _field(history, 'Medical history'),
-              _field(documents, 'Health documents (names)'),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, {
-              'conditions': _csv(conditions.text),
-              'medications': _csv(medications.text),
-              'medical_history': history.text.trim(),
-              'documents': _csv(documents.text),
-            }),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    conditions.dispose();
-    medications.dispose();
-    history.dispose();
-    documents.dispose();
-    if (result != null) await _save({'health_info': result});
-  }
-
-  List<String> _csv(String value) => value
-      .split(',')
-      .map((e) => e.trim())
-      .where((e) => e.isNotEmpty)
-      .toList();
 
   Future<void> _export() async {
     try {
@@ -415,7 +394,7 @@ class _YouTabState extends State<YouTab> {
                 title: 'BMI assessment',
                 icon: Icons.monitor_weight_outlined,
                 color: AppColors.aqua,
-                subtitle: 'Age, height & weight → WHO-style BMI',
+                subtitle: _bodyStatsLine(),
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -431,13 +410,6 @@ class _YouTabState extends State<YouTab> {
                 subtitle:
                     _goals.isEmpty ? 'No current goals' : _goals.join(' · '),
                 onTap: _editGoals,
-              ),
-              _section(
-                title: 'Health information',
-                icon: Icons.health_and_safety_rounded,
-                color: AppColors.coral,
-                subtitle: 'History, conditions, medications & documents',
-                onTap: _editHealth,
               ),
               const HarmoniousSectionDivider(),
               const SizedBox(height: 8),
@@ -483,6 +455,19 @@ class _YouTabState extends State<YouTab> {
     );
   }
 
+  String _bodyStatsLine() {
+    final age = _profile['age'];
+    final height = _profile['height'];
+    final weight = _profile['weight'];
+    final heightUnit = _profile['height_unit']?.toString() ?? 'cm';
+    final weightUnit = _profile['weight_unit']?.toString() ?? 'kg';
+
+    final agePart = age == null ? 'Age —' : '$age yrs';
+    final heightPart = height == null ? 'Height —' : '$height $heightUnit';
+    final weightPart = weight == null ? 'Weight —' : '$weight $weightUnit';
+    return '$agePart · $heightPart · $weightPart';
+  }
+
   Widget _profileCard(String name) {
     return HarmoniousCard(
       padding: const EdgeInsets.all(18),
@@ -515,16 +500,14 @@ class _YouTabState extends State<YouTab> {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  '${_profile['age'] ?? '—'} yrs · '
-                  '${_profile['height'] ?? '—'} ${_profile['height_unit'] ?? 'cm'} · '
-                  '${_profile['weight'] ?? '—'} ${_profile['weight_unit'] ?? 'kg'}',
+                  _bodyStatsLine(),
                   style: const TextStyle(color: AppColors.textSecondary),
                 ),
               ],
             ),
           ),
           IconButton(
-            onPressed: _editProfile,
+            onPressed: _busy ? null : _editProfile,
             constraints: const BoxConstraints(
               minWidth: HarmoniousSpacing.minTapTarget,
               minHeight: HarmoniousSpacing.minTapTarget,
@@ -592,6 +575,150 @@ class _YouTabState extends State<YouTab> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProfileEditResult {
+  const _ProfileEditResult({
+    required this.name,
+    this.age,
+    this.height,
+    this.weight,
+  });
+
+  final String name;
+  final int? age;
+  final double? height;
+  final double? weight;
+}
+
+class _ProfileEditDialog extends StatefulWidget {
+  const _ProfileEditDialog({required this.profile});
+
+  final Map<String, dynamic> profile;
+
+  @override
+  State<_ProfileEditDialog> createState() => _ProfileEditDialogState();
+}
+
+class _ProfileEditDialogState extends State<_ProfileEditDialog> {
+  late final TextEditingController _name;
+  late final TextEditingController _age;
+  late final TextEditingController _height;
+  late final TextEditingController _weight;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = widget.profile;
+    _name = TextEditingController(
+      text: profile['display_name']?.toString() ??
+          profile['full_name']?.toString() ??
+          '',
+    );
+    _age = TextEditingController(text: profile['age']?.toString() ?? '');
+    _height = TextEditingController(text: profile['height']?.toString() ?? '');
+    _weight = TextEditingController(text: profile['weight']?.toString() ?? '');
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _age.dispose();
+    _height.dispose();
+    _weight.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final ageText = _age.text.trim();
+    final heightText = _height.text.trim();
+    final weightText = _weight.text.trim();
+
+    final age = ageText.isEmpty ? null : int.tryParse(ageText);
+    final height = heightText.isEmpty ? null : double.tryParse(heightText);
+    final weight = weightText.isEmpty ? null : double.tryParse(weightText);
+
+    if (ageText.isNotEmpty && age == null) {
+      setState(() => _error = 'Enter a valid age');
+      return;
+    }
+    if (heightText.isNotEmpty && height == null) {
+      setState(() => _error = 'Enter a valid height');
+      return;
+    }
+    if (weightText.isNotEmpty && weight == null) {
+      setState(() => _error = 'Enter a valid weight');
+      return;
+    }
+    if (weight != null && (weight < 20 || weight > 400)) {
+      setState(() => _error = 'Weight should be between 20 and 400');
+      return;
+    }
+
+    Navigator.pop(
+      context,
+      _ProfileEditResult(
+        name: _name.text.trim(),
+        age: age,
+        height: height,
+        weight: weight,
+      ),
+    );
+  }
+
+  Widget _field(
+    TextEditingController controller,
+    String label, {
+    bool number = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: controller,
+        keyboardType: number
+            ? const TextInputType.numberWithOptions(decimal: true)
+            : TextInputType.text,
+        decoration: InputDecoration(labelText: label),
+        onChanged: (_) {
+          if (_error != null) setState(() => _error = null);
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: const Text('Edit profile'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _field(_name, 'Name'),
+            _field(_age, 'Age', number: true),
+            _field(_height, 'Height (cm)', number: true),
+            _field(_weight, 'Weight (kg)', number: true),
+            if (_error != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                _error!,
+                style: const TextStyle(color: AppColors.coral, fontSize: 13),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
+      ],
     );
   }
 }

@@ -110,8 +110,15 @@ class AuthService {
 
     if (error is AuthException) {
       final msg = error.message.toLowerCase();
-      if (msg.contains('rate limit')) {
-        return 'Too many emails sent. Please wait a minute, then try again.';
+      if (msg.contains('rate limit') ||
+          msg.contains('over_email_send_rate_limit')) {
+        return 'Too many emails sent. Wait about a minute, then try Resend.';
+      }
+      if (msg.contains('error sending confirmation email') ||
+          msg.contains('error sending') ||
+          msg.contains('smtp')) {
+        return 'Could not send the verification email. Check Supabase SMTP '
+            '(Username must be the full Gmail address, not “Harmonious”).';
       }
       if (msg.contains('email not confirmed') ||
           msg.contains('not confirmed')) {
@@ -121,7 +128,7 @@ class AuthService {
         return 'Invalid email or password.';
       }
       if (msg.contains('already') || msg.contains('registered')) {
-        return 'An account with this email already exists.';
+        return 'An account with this email already exists. Try signing in.';
       }
       if (msg.contains('password')) {
         return error.message;
@@ -163,99 +170,16 @@ class AuthService {
     final trimmedEmail = email.trim().toLowerCase();
 
     try {
-      // Prefer backend admin createUser (email_confirm, no confirmation email).
-      // Avoids Supabase "email rate limit exceeded" during local testing.
-      final createdViaBackend = await _signUpViaBackend(
-        fullName: trimmedName,
-        email: trimmedEmail,
-        password: password,
-      );
-
-      if (createdViaBackend != null) {
-        if (!createdViaBackend.success) {
-          return createdViaBackend;
-        }
-
-        // Establish a client session so the app can navigate authenticated.
-        final loginResponse = await _supabase.auth.signInWithPassword(
-          email: trimmedEmail,
-          password: password,
-        );
-
-        if (loginResponse.session == null || loginResponse.user == null) {
-          return AuthResult.success(
-            message: 'Account created. Please log in.',
-            signedIn: false,
-            user: createdViaBackend.user,
-          );
-        }
-
-        return AuthResult.success(
-          message: 'Account created successfully.',
-          signedIn: true,
-          user: {
-            'id': loginResponse.user!.id,
-            'email': loginResponse.user!.email,
-            'fullName': trimmedName,
-          },
-        );
-      }
-
-      // Fallback: direct Supabase signup (sends confirmation email if enabled).
-      return _signUpViaSupabase(
+      // Use Supabase Auth signup so confirmation emails are sent via SMTP
+      // (Brevo). Do not use admin createUser with email_confirm:true — that
+      // creates the account silently with no inbox message.
+      return await _signUpViaSupabase(
         fullName: trimmedName,
         email: trimmedEmail,
         password: password,
       );
     } catch (error) {
       return AuthResult.failure(_mapError(error));
-    }
-  }
-
-  /// Returns null when the backend is unreachable so we can fall back.
-  Future<AuthResult?> _signUpViaBackend({
-    required String fullName,
-    required String email,
-    required String password,
-  }) async {
-    try {
-      final response = await http
-          .post(
-            ApiConfig.signUp,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'fullName': fullName,
-              'email': email,
-              'password': password,
-            }),
-          )
-          .timeout(const Duration(seconds: 12));
-
-      final body = response.body.isNotEmpty
-          ? jsonDecode(response.body) as Map<String, dynamic>
-          : <String, dynamic>{};
-      final message = (body['message'] as String?) ?? 'Unable to create account.';
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final user = body['user'] as Map<String, dynamic>?;
-        return AuthResult.success(
-          message: message,
-          signedIn: false,
-          user: user,
-        );
-      }
-
-      if (response.statusCode == 409) {
-        return AuthResult.failure('An account with this email already exists.');
-      }
-
-      return AuthResult.failure(message);
-    } on SocketException {
-      return null;
-    } on http.ClientException {
-      return null;
-    } catch (_) {
-      return null;
     }
   }
 
@@ -274,6 +198,16 @@ class AuthService {
     final user = response.user;
     if (user == null) {
       return AuthResult.failure('Unable to create account. Please try again.');
+    }
+
+    // Supabase returns a user with empty identities (and no email) when the
+    // address is already registered — avoid a fake “check your email” screen.
+    final identities = user.identities ?? const [];
+    if (identities.isEmpty && response.session == null) {
+      return AuthResult.failure(
+        'An account with this email already exists. Sign in, or delete the '
+        'user in Supabase → Authentication → Users and try again.',
+      );
     }
 
     if (response.session != null) {

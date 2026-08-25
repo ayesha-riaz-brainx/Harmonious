@@ -135,6 +135,7 @@ alter table public.daily_logs
 alter table public.profiles
   add column if not exists ai_memory jsonb not null default '{}'::jsonb,
   add column if not exists health_info jsonb not null default '{}'::jsonb,
+  add column if not exists health_tracker jsonb not null default '{}'::jsonb,
   add column if not exists app_settings jsonb not null default '{
     "ai_personality": "Supportive",
     "communication_style": "Balanced",

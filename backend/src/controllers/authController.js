@@ -103,7 +103,9 @@ async function signUp(req, res, next) {
     const { data, error } = await supabase.auth.admin.createUser({
       email: email.trim().toLowerCase(),
       password,
-      email_confirm: true,
+      // Do not auto-confirm. Normal app signup uses Flutter → Supabase Auth
+      // which sends the verification email through your SMTP (Brevo).
+      email_confirm: false,
       user_metadata: { full_name: fullName.trim() },
     });
 

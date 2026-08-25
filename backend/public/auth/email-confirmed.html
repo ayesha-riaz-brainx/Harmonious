@@ -16,7 +16,6 @@
         --accent: #00f2fe;
         --accent-2: #4facfe;
         --ok: #7ed9a7;
-        --warn: #ffc56e;
         --err: #ff8d8d;
       }
       * { box-sizing: border-box; }
@@ -124,6 +123,11 @@
         font-size: 0.95rem;
         text-decoration: none;
         cursor: pointer;
+        width: 100%;
+      }
+      .cta:disabled {
+        opacity: 0.65;
+        cursor: wait;
       }
       .cta.secondary {
         margin-top: 12px;
@@ -142,72 +146,196 @@
   <body>
     <main class="card" id="panel">
       <p class="brand">Harmonious</p>
-      <div class="icon" id="icon">✓</div>
-      <h1 id="title">Email verified</h1>
-      <p id="message">
-        Your email is confirmed. Open the Harmonious app and sign in to continue
-        your wellness journey.
-      </p>
-      <ol class="steps" id="steps">
+      <div class="icon pending" id="icon">…</div>
+      <h1 id="title">Confirming email</h1>
+      <p id="message">One moment while we prepare your verification.</p>
+      <ol class="steps hidden" id="steps">
         <li><span class="n">1</span><span>Open the Harmonious app on your phone</span></li>
         <li><span class="n">2</span><span>Sign in with the email you just verified</span></li>
         <li><span class="n">3</span><span>Finish profile setup and start your Today dashboard</span></li>
       </ol>
-      <a class="cta" href="#" id="open-app">Open Harmonious</a>
+      <button class="cta hidden" type="button" id="confirm-btn">Confirm my email</button>
+      <button class="cta secondary hidden" type="button" id="open-app">Done — open the app</button>
       <a class="cta secondary" href="/privacy-policy.html">Privacy policy</a>
       <footer>Your life, understood.</footer>
     </main>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script>
       (function () {
-        var params = new URLSearchParams(window.location.search);
-        var hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-        var error =
-          params.get("error") ||
-          params.get("error_code") ||
-          hash.get("error") ||
-          hash.get("error_code");
-        var errorDesc =
-          params.get("error_description") ||
-          hash.get("error_description") ||
-          "";
-        var type = params.get("type") || hash.get("type") || "";
-        var hasAccess =
-          hash.get("access_token") ||
-          params.get("access_token") ||
-          hash.get("token_hash");
-
         var icon = document.getElementById("icon");
         var title = document.getElementById("title");
         var message = document.getElementById("message");
         var steps = document.getElementById("steps");
+        var confirmBtn = document.getElementById("confirm-btn");
         var openApp = document.getElementById("open-app");
+        var client = null;
+        var tokenHash = "";
+        var otpType = "signup";
 
-        if (error) {
-          icon.className = "icon error";
-          icon.textContent = "!";
-          title.textContent = "Link expired or invalid";
-          message.textContent =
-            (errorDesc || "This confirmation link is no longer valid.")
-              .replace(/\+/g, " ") +
-            " Open the Harmonious app and request a new verification email from the sign-up or login screen.";
-          steps.classList.add("hidden");
-          openApp.textContent = "Back to Harmonious";
-        } else if (!hasAccess && type && type !== "signup" && type !== "email") {
-          icon.className = "icon pending";
-          icon.textContent = "…";
-          title.textContent = "Finishing verification";
-          message.textContent =
-            "Hang tight — if you landed here from your email, your account should be ready. Open the app and sign in.";
+        function setState(kind, heading, body, opts) {
+          opts = opts || {};
+          icon.className = "icon" + (kind ? " " + kind : "");
+          icon.textContent = opts.glyph || (kind === "error" ? "!" : kind === "pending" ? "…" : "✓");
+          title.textContent = heading;
+          message.textContent = body;
+          steps.classList.toggle("hidden", !opts.showSteps);
+          confirmBtn.classList.toggle("hidden", !opts.showConfirm);
+          openApp.classList.toggle("hidden", !opts.showOpenApp);
         }
 
-        openApp.addEventListener("click", function (e) {
-          e.preventDefault();
-          // Deep link if installed; otherwise leave the success message visible.
+        function paramsFrom(locationPart) {
+          return new URLSearchParams(locationPart.replace(/^[#?]/, ""));
+        }
+
+        function readAuthParams() {
+          var query = paramsFrom(window.location.search);
+          var hash = paramsFrom(window.location.hash);
+          return {
+            error: query.get("error") || query.get("error_code") || hash.get("error") || hash.get("error_code"),
+            errorDesc: (query.get("error_description") || hash.get("error_description") || "").replace(/\+/g, " "),
+            accessToken: hash.get("access_token") || query.get("access_token"),
+            refreshToken: hash.get("refresh_token") || query.get("refresh_token"),
+            tokenHash: hash.get("token_hash") || query.get("token_hash"),
+            type: (hash.get("type") || query.get("type") || "signup").toLowerCase(),
+            code: query.get("code") || hash.get("code"),
+          };
+        }
+
+        async function loadClient() {
+          var configRes = await fetch("/auth/client-config.json");
+          if (!configRes.ok) throw new Error("Could not load auth config from the server.");
+          var config = await configRes.json();
+          if (!config.supabaseUrl || !config.supabaseAnonKey) {
+            throw new Error("Auth is not configured on the server.");
+          }
+          return window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+        }
+
+        async function verifyWithTokenHash() {
+          var attempts = [otpType, "signup", "email"].filter(function (value, index, all) {
+            return value && all.indexOf(value) === index;
+          });
+          var lastError = null;
+          for (var i = 0; i < attempts.length; i++) {
+            var result = await client.auth.verifyOtp({
+              type: attempts[i],
+              token_hash: tokenHash,
+            });
+            if (!result.error) return;
+            lastError = result.error;
+          }
+          throw lastError || new Error("Verification failed.");
+        }
+
+        async function runVerification() {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = "Confirming…";
+          setState("pending", "Confirming email", "Please wait a moment.", {});
+          try {
+            if (tokenHash) {
+              await verifyWithTokenHash();
+            }
+            showSuccess();
+          } catch (err) {
+            var msg = (err && err.message) || "This confirmation link is no longer valid.";
+            setState(
+              "error",
+              "Link expired or invalid",
+              msg + " Open the Harmonious app and request a new verification email from sign-up or login.",
+              { showOpenApp: true },
+            );
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = "Confirm my email";
+          }
+        }
+
+        function showSuccess() {
+          setState(
+            "",
+            "Email verified",
+            "Your email is confirmed. Open the Harmonious app and sign in to continue your wellness journey.",
+            { showSteps: true, showOpenApp: true, glyph: "✓" },
+          );
+          // Clean sensitive tokens from the address bar.
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }
+
+        openApp.addEventListener("click", function () {
+          // Try the app only — do not bounce users to the API homepage.
           window.location.href = "harmonious://login";
-          setTimeout(function () {
-            window.location.href = "https://harmonious.onrender.com/";
-          }, 700);
         });
+
+        confirmBtn.addEventListener("click", function () {
+          runVerification();
+        });
+
+        async function init() {
+          var auth = readAuthParams();
+
+          if (auth.error) {
+            setState(
+              "error",
+              "Link expired or invalid",
+              (auth.errorDesc || "This confirmation link is no longer valid.") +
+                " Open the Harmonious app and request a new verification email from sign-up or login.",
+              { showOpenApp: true },
+            );
+            return;
+          }
+
+          try {
+            client = await loadClient();
+            tokenHash = auth.tokenHash || "";
+            otpType = auth.type || "signup";
+
+            if (auth.accessToken && auth.refreshToken) {
+              var sessionResult = await client.auth.setSession({
+                access_token: auth.accessToken,
+                refresh_token: auth.refreshToken,
+              });
+              if (sessionResult.error) throw sessionResult.error;
+              showSuccess();
+              return;
+            }
+
+            if (auth.code) {
+              var exchange = await client.auth.exchangeCodeForSession(auth.code);
+              if (exchange.error) throw exchange.error;
+              showSuccess();
+              return;
+            }
+
+            if (tokenHash) {
+              // Require a tap so email security scanners cannot burn the one-time link.
+              setState(
+                "pending",
+                "Verify your email",
+                "Tap the button below to confirm your Harmonious account. This step protects your link from being used by email scanners.",
+                { showConfirm: true, glyph: "✉" },
+              );
+              return;
+            }
+
+            setState(
+              "pending",
+              "Open the link from your email",
+              "This page verifies Harmonious accounts. Use the “Verify email address” button in your signup email, then return here.",
+              { showOpenApp: true },
+            );
+          } catch (err) {
+            setState(
+              "error",
+              "Link expired or invalid",
+              ((err && err.message) || "We could not verify this link.") +
+                " Open the Harmonious app and request a new verification email.",
+              { showOpenApp: true },
+            );
+          }
+        }
+
+        init();
       })();
     </script>
   </body>

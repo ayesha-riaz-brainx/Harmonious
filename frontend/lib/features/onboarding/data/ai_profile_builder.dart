@@ -13,7 +13,7 @@ class AiProfile {
     required this.message,
     this.stepsGoal = 8000,
     this.exerciseGoalMinutes = 30,
-    this.habitTemplates = const ['water', 'breakfast', 'workout', 'journal', 'sleep'],
+    this.habitTemplates = const [],
   });
 
   final String primaryGoal;
@@ -60,9 +60,7 @@ class AiProfileBuilder {
     final focus = _focusAreas(draft);
     final stepsGoal = _stepsGoal(draft);
     final exerciseMinutes = _exerciseGoalMinutes(draft);
-    final habits = draft.selectedHabits.isNotEmpty
-        ? List<String>.from(draft.selectedHabits)
-        : const ['water', 'breakfast', 'workout', 'journal', 'sleep'];
+    final habits = List<String>.from(draft.selectedHabits);
 
     return AiProfile(
       primaryGoal: primaryLabel,

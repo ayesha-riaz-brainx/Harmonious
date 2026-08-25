@@ -79,9 +79,14 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
     setState(() => _isLoading = false);
 
+    final isReturningUser =
+        profile != null &&
+        profile.profileSetupCompleted &&
+        profile.onboardingCompleted;
+
     AuthNotice.show(
       context,
-      message: 'Welcome back.',
+      message: isReturningUser ? 'Welcome back.' : 'Welcome to Harmonious.',
       tone: AuthNoticeTone.success,
       duration: const Duration(seconds: 2),
     );

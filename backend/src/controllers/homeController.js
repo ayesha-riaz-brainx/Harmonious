@@ -9,6 +9,8 @@ const {
   defaultTasks,
   resolveLogDate,
   buildHomePayload,
+  sanitizeTasks,
+  isLegacyDefaultHabitSet,
   safeNum,
   safeOptionalNum,
 } = require('../services/homeService');
@@ -79,7 +81,7 @@ async function getToday(req, res, next) {
       return res.status(400).json({ message: profileError.message });
     }
 
-    const aiProfile = profile?.ai_profile || {};
+    let aiProfile = profile?.ai_profile || {};
     const onboarding = profile?.onboarding_data || {};
     const logDate = resolveLogDate(req);
     let log = await getOrCreateTodayLog(
@@ -89,6 +91,48 @@ async function getToday(req, res, next) {
       logDate,
       onboarding,
     );
+
+    // Clear / replace legacy auto-seeded 5 habits with the user's real choice.
+    const cleanedTasks = sanitizeTasks(log.tasks, aiProfile, onboarding);
+    const tasksChanged =
+      JSON.stringify(log.tasks || []) !== JSON.stringify(cleanedTasks);
+    const hadLegacyTemplates = isLegacyDefaultHabitSet(
+      aiProfile.habit_templates || aiProfile.selected_habits || [],
+    );
+
+    if (tasksChanged || hadLegacyTemplates) {
+      if (hadLegacyTemplates) {
+        aiProfile = {
+          ...aiProfile,
+          habit_templates: Array.isArray(onboarding.selected_habits)
+            ? onboarding.selected_habits.map(String)
+            : cleanedTasks.map((t) => t.id),
+        };
+      }
+
+      const updates = [];
+      if (tasksChanged) {
+        updates.push(
+          supabase
+            .from('daily_logs')
+            .update({ tasks: cleanedTasks })
+            .eq('id', log.id),
+        );
+        log = { ...log, tasks: cleanedTasks };
+      }
+      if (hadLegacyTemplates) {
+        updates.push(
+          supabase
+            .from('profiles')
+            .update({
+              ai_profile: aiProfile,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', userId),
+        );
+      }
+      await Promise.all(updates);
+    }
 
     // MVP cost gate: never auto-call OpenAI on Today load.
     // Keep an explicit AI brief if the user generated one; otherwise refresh
@@ -182,7 +226,7 @@ async function updateToday(req, res, next) {
     }
     if (Array.isArray(tasks)) patch.tasks = tasks;
 
-    if (Array.isArray(habitTemplates) && habitTemplates.length > 0) {
+    if (Array.isArray(habitTemplates)) {
       aiProfile = {
         ...aiProfile,
         habit_templates: habitTemplates.map((id) => String(id)),

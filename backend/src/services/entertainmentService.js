@@ -1,5 +1,4 @@
 const { getSupabaseAdmin } = require('../config/supabase');
-const { hasAiKey, chatJson } = require('./aiService');
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
@@ -9,7 +8,6 @@ const ALLOWED_GENRES = [
   'Feel-Good',
   'Animation',
   'Adventure',
-  'Romance',
   'Drama',
   'Mystery',
   'Sci-Fi',
@@ -21,15 +19,15 @@ const ALLOWED_GENRES = [
 ];
 
 const MOOD_GENRE_MAP = {
-  sad: ['Comedy', 'Feel-Good', 'Animation', 'Family', 'Romance'],
+  sad: ['Comedy', 'Feel-Good', 'Animation', 'Family'],
   stressed: ['Comedy', 'Feel-Good', 'Documentary', 'Animation', 'Family'],
   lonely: ['Comedy', 'Family', 'Feel-Good', 'Drama'],
   bored: ['Adventure', 'Mystery', 'Comedy', 'Sci-Fi'],
-  happy: ['Comedy', 'Adventure', 'Romance', 'Animation'],
+  happy: ['Comedy', 'Adventure', 'Animation', 'Feel-Good'],
   anxious: ['Comedy', 'Feel-Good', 'Animation', 'Documentary', 'Family'],
   tired: ['Comedy', 'Feel-Good', 'Animation', 'Documentary', 'Family'],
   angry: ['Comedy', 'Adventure', 'Action'],
-  low: ['Comedy', 'Feel-Good', 'Animation', 'Family', 'Romance'],
+  low: ['Comedy', 'Feel-Good', 'Animation', 'Family'],
   neutral: ['Comedy', 'Feel-Good', 'Documentary', 'Family'],
 };
 
@@ -38,7 +36,6 @@ const TMDB_GENRE_IDS = {
   'Feel-Good': [35, 10751],
   Animation: [16],
   Adventure: [12],
-  Romance: [10749],
   Drama: [18],
   Mystery: [9648],
   'Sci-Fi': [878],
@@ -388,53 +385,6 @@ async function enrichWithProviders(items, country) {
   return enriched;
 }
 
-async function aiPickRecommendations(candidates, { mood, selectedGenres }) {
-  if (!hasAiKey() || candidates.length === 0) return null;
-
-  const shortlist = candidates.slice(0, 12).map((item) => ({
-    id: item.id,
-    media_type: item.media_type,
-    title: item.title || item.name,
-    overview: String(item.overview || '').slice(0, 220),
-    genres: item.genre_ids,
-    vote_average: item.vote_average,
-  }));
-
-  try {
-    const result = await chatJson({
-      temperature: 0.3,
-      system:
-        'You pick entertainment from a fixed candidate list only. Return JSON: {"picks":[{"id":number,"media_type":"movie|tv","reason":"short friendly sentence"}]}. Pick 2 or 3 items. Never invent titles or IDs outside the list.',
-      user: JSON.stringify({
-        mood,
-        selected_genres: selectedGenres,
-        candidates: shortlist,
-      }),
-    });
-
-    const picks = Array.isArray(result?.picks) ? result.picks : [];
-    if (picks.length === 0) return null;
-
-    const selected = [];
-    for (const pick of picks.slice(0, 3)) {
-      const match = candidates.find(
-        (item) =>
-          item.id === pick.id &&
-          item.media_type === pick.media_type,
-      );
-      if (!match) continue;
-      selected.push({
-        ...match,
-        reason: String(pick.reason || buildReason(match, mood, selectedGenres)),
-      });
-    }
-    return selected.length > 0 ? selected : null;
-  } catch (error) {
-    console.error('Entertainment AI pick failed:', error.message);
-    return null;
-  }
-}
-
 function formatRecommendation(item, { mood, selectedGenres, country }) {
   const title = item.title || item.name || 'Untitled';
   const provider = item.provider;
@@ -563,19 +513,12 @@ async function getRecommendations({
     .sort((a, b) => b._score - a._score);
 
   const candidatePool = ranked.slice(0, 15);
+  // TMDB ranking only — no OpenAI (avoids per-request cost for Mood picks).
   const withProviders = await enrichWithProviders(candidatePool, country);
-
-  let top = await aiPickRecommendations(withProviders, {
-    mood: normalizedMood,
-    selectedGenres,
-  });
-
-  if (!top) {
-    top = withProviders.slice(0, 3).map((item) => ({
-      ...item,
-      reason: buildReason(item, normalizedMood, selectedGenres),
-    }));
-  }
+  const top = withProviders.slice(0, 3).map((item) => ({
+    ...item,
+    reason: buildReason(item, normalizedMood, selectedGenres),
+  }));
 
   const recommendations = top
     .slice(0, 3)

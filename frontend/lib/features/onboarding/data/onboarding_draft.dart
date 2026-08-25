@@ -20,7 +20,7 @@ class OnboardingDraft {
     this.moods = const [],
     this.moodTriggers = const [],
     this.goals = const [],
-    this.selectedHabits = const ['water', 'breakfast', 'workout', 'journal', 'sleep'],
+    this.selectedHabits = const [],
     this.targetWeight,
     this.targetDate,
     this.workoutPreference,

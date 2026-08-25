@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
+import 'package:slot_1_tasks/features/home/presentation/tabs/health_tab.dart';
 import 'package:slot_1_tasks/features/home/presentation/tabs/tools_tab.dart';
 import 'package:slot_1_tasks/features/home/presentation/tabs/journey_tab.dart';
 import 'package:slot_1_tasks/features/home/presentation/tabs/today_tab.dart';
@@ -20,16 +21,18 @@ class _MainShellState extends State<MainShell> {
   final _todayKey = GlobalKey<TodayTabState>();
   final _journeyKey = GlobalKey<JourneyTabState>();
   final _toolsKey = GlobalKey<ToolsTabState>();
+  final _healthKey = GlobalKey<HealthTabState>();
   late final List<Widget> _pages;
 
+  /// Today · Tools · Journey · Health · You — Add is a floating FAB
   static const _tabs = [
     _NavItem('Today', Icons.home_outlined, Icons.home_rounded),
     _NavItem('Tools', Icons.spa_outlined, Icons.spa_rounded),
-    _NavItem('Add', Icons.add_rounded, Icons.add_rounded),
+    _NavItem('Journey', Icons.show_chart_outlined, Icons.show_chart_rounded),
     _NavItem(
-      'Journey',
-      Icons.insights_outlined,
-      Icons.insights_rounded,
+      'Health',
+      Icons.favorite_outline_rounded,
+      Icons.favorite_rounded,
     ),
     _NavItem('You', Icons.person_outline_rounded, Icons.person_rounded),
   ];
@@ -50,14 +53,13 @@ class _MainShellState extends State<MainShell> {
         key: _toolsKey,
         onDataChanged: _onDataChanged,
       ),
-      const SizedBox.shrink(),
       JourneyTab(key: _journeyKey),
+      HealthTab(key: _healthKey),
       const YouTab(),
     ];
   }
 
   Future<void> _onDataChanged({bool includeToday = true}) async {
-    // Never rebuild Journey/Tools mid-capture — just mark dirty.
     _dirty = true;
     if (!mounted) return;
     if (includeToday) {
@@ -67,7 +69,6 @@ class _MainShellState extends State<MainShell> {
 
   void _toast(String message) {
     if (!mounted) return;
-    // Defer snackbar so it never races overlay dispose.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -89,7 +90,6 @@ class _MainShellState extends State<MainShell> {
         setState(() => _index = 0);
       }
 
-      // Wait one more frame after tab switch before mutating Today.
       await Future<void>.delayed(Duration.zero);
       if (!mounted) return;
 
@@ -108,14 +108,13 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
-  Future<void> _onTap(int index) async {
-    if (index == 2) {
-      final outcome = await showQuickCapture(context);
-      if (!mounted || outcome == null) return;
-      await _applyCapture(outcome);
-      return;
-    }
+  Future<void> _openAdd() async {
+    final outcome = await showQuickCapture(context);
+    if (!mounted || outcome == null) return;
+    await _applyCapture(outcome);
+  }
 
+  Future<void> _onTap(int index) async {
     if (_dirty) {
       _dirty = false;
     }
@@ -128,21 +127,23 @@ class _MainShellState extends State<MainShell> {
       await _todayKey.currentState?.reload(silent: true);
     } else if (index == 1) {
       await _toolsKey.currentState?.reload();
-    } else if (index == 3) {
+    } else if (index == 2) {
       await _journeyKey.currentState?.refresh();
+    } else if (index == 3) {
+      await _healthKey.currentState?.reload();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bodyIndex = _index == 2 ? 0 : _index;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: IndexedStack(
-        index: bodyIndex,
+        index: _index,
         children: _pages,
       ),
+      floatingActionButton: _FloatingAddButton(onTap: _openAdd),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppColors.surface.withValues(alpha: 0.96),
@@ -160,7 +161,7 @@ class _MainShellState extends State<MainShell> {
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+            padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
             child: Row(
               children: [
                 for (var i = 0; i < _tabs.length; i++)
@@ -168,7 +169,6 @@ class _MainShellState extends State<MainShell> {
                     child: _NavButton(
                       item: _tabs[i],
                       selected: _index == i,
-                      isAdd: i == 2,
                       onTap: () => _onTap(i),
                     ),
                   ),
@@ -189,74 +189,73 @@ class _NavItem {
   final IconData selectedIcon;
 }
 
+class _FloatingAddButton extends StatelessWidget {
+  const _FloatingAddButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Add',
+      child: Material(
+        color: Colors.transparent,
+        elevation: 0,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Ink(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.cyanGradientStart,
+                  AppColors.cyanGradientEnd,
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.45),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.28),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.add_rounded,
+              size: 30,
+              color: AppColors.onPrimaryButton,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _NavButton extends StatelessWidget {
   const _NavButton({
     required this.item,
     required this.selected,
     required this.onTap,
-    this.isAdd = false,
   });
 
   final _NavItem item;
   final bool selected;
   final VoidCallback onTap;
-  final bool isAdd;
 
   @override
   Widget build(BuildContext context) {
-    if (isAdd) {
-      return Semantics(
-        button: true,
-        label: 'Add',
-        child: GestureDetector(
-          onTap: onTap,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [
-                      AppColors.cyanGradientStart,
-                      AppColors.cyanGradientEnd,
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.35),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.add_rounded,
-                  size: 28,
-                  color: AppColors.onPrimaryButton,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                item.label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: selected
-                      ? AppColors.primaryBright
-                      : AppColors.textMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -278,16 +277,18 @@ class _NavButton extends StatelessWidget {
               children: [
                 Icon(
                   selected ? item.selectedIcon : item.icon,
-                  size: 23,
+                  size: 22,
                   color: selected
                       ? AppColors.primaryBright
                       : AppColors.textMuted,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
                   item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     color: selected
                         ? AppColors.primaryBright

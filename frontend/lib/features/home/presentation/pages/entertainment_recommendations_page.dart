@@ -151,8 +151,6 @@ class _EntertainmentRecommendationsPageState
               HarmoniousPageHeader(
                 icon: Icons.movie_filter_outlined,
                 title: 'Watch picks',
-                subtitle:
-                    'Safe, mood-aware suggestions from curated genres only.',
                 iconColor: AppColors.cyanAccent,
               ),
               const SizedBox(height: 20),

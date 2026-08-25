@@ -3,19 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Verify your email | Harmonious</title>
+    <title>Magic link | Harmonious</title>
   </head>
   <body style="margin:0;padding:0;background:#0E0E12;">
     <!--
-      Supabase → Authentication → Email Templates → Confirm signup
-      Subject: Verify your Harmonious email
-
-      IMPORTANT: Do NOT use {{ .ConfirmationURL }} alone.
-      Gmail / Outlook scanners open that link automatically and burn the
-      one-time token, so users see "Link expired or invalid".
-
-      Use token_hash → our landing page → user taps Confirm.
-      Keep {{ .TokenHash }} and {{ .RedirectTo }} exactly as written.
+      Supabase → Authentication → Email Templates → Magic Link
+      Subject: Your Harmonious sign-in link
+      Keep {{ .ConfirmationURL }} exactly as-is.
     -->
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0E0E12;background-image:radial-gradient(circle at 18% 0%,#142841 0,transparent 36rem);padding:40px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
       <tr>
@@ -31,32 +25,32 @@
                 <table role="presentation" width="100%">
                   <tr>
                     <td align="center" style="padding:0 0 20px 0;">
-                      <div style="width:72px;height:72px;border-radius:999px;background:linear-gradient(135deg,rgba(0,242,254,0.18),rgba(79,172,254,0.12));border:1px solid rgba(0,242,254,0.35);line-height:72px;font-size:28px;">✦</div>
+                      <div style="width:72px;height:72px;border-radius:999px;background:linear-gradient(135deg,rgba(0,242,254,0.18),rgba(79,172,254,0.12));border:1px solid rgba(0,242,254,0.35);line-height:72px;font-size:28px;">✨</div>
                     </td>
                   </tr>
                   <tr>
                     <td align="center">
-                      <h1 style="margin:0;font-size:26px;line-height:1.25;color:#F2F0FA;font-weight:700;">Verify your email</h1>
+                      <h1 style="margin:0;font-size:26px;line-height:1.25;color:#F2F0FA;font-weight:700;">Sign in to Harmonious</h1>
                       <p style="margin:14px 0 0;font-size:15px;line-height:1.65;color:#9B97AB;">
-                        Welcome to Harmonious. Confirm your email to secure your account and continue your wellness journey.
+                        Use this secure link to open your account. It works once and expires soon.
                       </p>
                     </td>
                   </tr>
                   <tr>
                     <td align="center" style="padding:28px 0 8px 0;">
-                      <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=signup" style="display:inline-block;padding:14px 28px;border-radius:999px;background:linear-gradient(135deg,#00F2FE,#4FACFE);color:#0A1628;font-size:15px;font-weight:700;text-decoration:none;">
-                        Verify email address
+                      <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 28px;border-radius:999px;background:linear-gradient(135deg,#00F2FE,#4FACFE);color:#0A1628;font-size:15px;font-weight:700;text-decoration:none;">
+                        Open Harmonious
                       </a>
                     </td>
                   </tr>
                   <tr>
                     <td style="padding-top:22px;">
                       <p style="margin:0;font-size:13px;line-height:1.6;color:#9B97AB;text-align:center;">
-                        You will land on a Harmonious page — tap <strong style="color:#F2F0FA;">Confirm my email</strong> there. This link expires soon. If you didn’t create a Harmonious account, you can ignore this email.
+                        If you didn’t request this link, you can ignore this email.
                       </p>
                       <p style="margin:18px 0 0;font-size:12px;line-height:1.55;color:#6E6A7C;word-break:break-all;text-align:center;">
                         Button not working?<br />
-                        <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=signup" style="color:#00F2FE;text-decoration:none;">{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=signup</a>
+                        <a href="{{ .ConfirmationURL }}" style="color:#00F2FE;text-decoration:none;">{{ .ConfirmationURL }}</a>
                       </p>
                     </td>
                   </tr>

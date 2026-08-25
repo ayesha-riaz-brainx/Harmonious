@@ -1,19 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' as intl;
 
-import 'package:slot_1_tasks/core/services/cosmic_checkin_service.dart';
 import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/services/health_snapshot_service.dart';
 import 'package:slot_1_tasks/core/services/home_service.dart';
-import 'package:slot_1_tasks/core/services/profile_service.dart';
 import 'package:slot_1_tasks/core/services/streak_service.dart';
 import 'package:slot_1_tasks/core/services/wellness_score_service.dart';
-import 'package:slot_1_tasks/core/astrology/cosmic_checkin.dart';
-import 'package:slot_1_tasks/core/astrology/zodiac_sign.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/emotional_support_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/journal_page.dart';
-import 'package:slot_1_tasks/features/home/presentation/widgets/cosmic_checkin_card.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/health_snapshot_card.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/mood_entertainment_card.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/quick_add_sheet.dart';
@@ -39,8 +34,6 @@ class TodayTab extends StatefulWidget {
 class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
   final _home = HomeService();
   final _features = FeatureService();
-  final _profiles = ProfileService();
-  final _cosmic = CosmicCheckInService();
   final _streakService = StreakService();
   final _snapshotService = HealthSnapshotService();
   final _scroll = ScrollController();
@@ -56,7 +49,6 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
   String? _error;
   bool _loading = true;
   bool _busy = false;
-  CosmicCheckIn? _cosmicCheckIn;
 
   late final AnimationController _entrance;
 
@@ -154,14 +146,11 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
       final results = await Future.wait([
         _home.fetchToday(),
         _features.get('captures?limit=100'),
-        _loadCosmicCheckIn(),
       ]);
       final data = results[0] as HomeDashboard;
       final capturesResult = results[1] as Map<String, dynamic>;
-      final cosmic = results[2] as CosmicCheckIn?;
       final captures = (capturesResult['captures'] as List?) ?? const [];
       if (!mounted) return;
-      setState(() => _cosmicCheckIn = cosmic);
       await _refreshDerivedMetrics(data, captures: captures);
       if (!silent) _entrance.forward(from: 0);
     } catch (e) {
@@ -172,19 +161,6 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
           _error = e.toString().replaceFirst('Exception: ', '');
         }
       });
-    }
-  }
-
-  Future<CosmicCheckIn?> _loadCosmicCheckIn() async {
-    try {
-      final profile = await _profiles.fetchCurrentProfile();
-      final sign = ZodiacSign.fromId(profile?.zodiacSign) ??
-          (profile?.birthday != null
-              ? ZodiacSign.fromBirthday(profile!.birthday!)
-              : null);
-      return _cosmic.forSign(sign);
-    } catch (_) {
-      return null;
     }
   }
 
@@ -409,8 +385,8 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
   }
 
   String _habitLabelForId(String id, String fallback) {
-    if (id == 'water') return 'Drink water (habit)';
-    if (id == 'workout') return 'Move goal';
+    if (id == 'water') return 'Drink water';
+    if (id == 'workout') return 'Move / exercise';
     if (id == 'breakfast') return 'Log breakfast';
     return fallback;
   }
@@ -436,9 +412,10 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
 
   String _greeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (hour >= 5 && hour < 12) return 'Good morning';
+    if (hour >= 12 && hour < 17) return 'Good afternoon';
+    if (hour >= 17 && hour < 21) return 'Good evening';
+    return 'Good night';
   }
 
   @override
@@ -475,29 +452,34 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
                                   name: _data!.greetingName,
                                 ),
                               ),
-                              if (_cosmicCheckIn != null) ...[
-                                const SizedBox(height: 20),
+                              if (_streak != null && _wellness != null) ...[
+                                const SizedBox(height: 16),
                                 _fadeSlide(
                                   1,
-                                  CosmicCheckInCard(checkIn: _cosmicCheckIn!),
-                                ),
-                              ],
-                              if (_streak != null && _wellness != null) ...[
-                                const SizedBox(height: 20),
-                                _fadeSlide(
-                                  _cosmicCheckIn != null ? 2 : 1,
-                                  StreakCard(streak: _streak!),
-                                ),
-                                const SizedBox(height: 12),
-                                _fadeSlide(
-                                  2,
-                                  WellnessScoreCard(breakdown: _wellness!),
+                                  IntrinsicHeight(
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(
+                                          child: StreakCard(streak: _streak!),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          flex: 2,
+                                          child: WellnessScoreCard(
+                                            breakdown: _wellness!,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ],
                               if (_healthSnapshot != null) ...[
                                 const SizedBox(height: 12),
                                 _fadeSlide(
-                                  3,
+                                  2,
                                   HealthSnapshotCard(
                                     snapshot: _healthSnapshot!,
                                     activeFocus: _activeFocus,
@@ -507,7 +489,7 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
                               ],
                               const SizedBox(height: 24),
                               _fadeSlide(
-                                4,
+                                3,
                                 KeyedSubtree(
                                   key: _planKey,
                                   child: _ProgressSection(
@@ -544,43 +526,10 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
                                     await _patch({
                                       'tasks':
                                           next.map((t) => t.toJson()).toList(),
-                                      if (templates.isNotEmpty)
-                                        'habitTemplates': templates,
+                                      'habitTemplates': templates,
                                     });
                                   },
                                   onToggle: (task) async {
-                                    if (task.id == 'water' &&
-                                        !task.done &&
-                                        _data!.today.waterLiters < 0.05) {
-                                      final confirmed = await showDialog<bool>(
-                                        context: context,
-                                        builder: (dialogContext) {
-                                          return AlertDialog(
-                                            backgroundColor: AppColors.surface,
-                                            title: const Text('Mark water habit?'),
-                                            content: const Text(
-                                              'You have not logged water yet. Checking this '
-                                              'marks the habit only — use Log water to track '
-                                              'glasses and liters.',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(dialogContext, false),
-                                                child: const Text('Cancel'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(dialogContext, true),
-                                                child: const Text('Mark habit'),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                      if (confirmed != true) return;
-                                    }
-
                                     final next = _data!.today.tasks
                                         .map(
                                           (t) => t.id == task.id
@@ -612,18 +561,9 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
                                 7,
                                 _GoalsSection(goals: _data!.activeGoals),
                               ),
-                              if (_data!.today.aiInsights.isNotEmpty) ...[
-                                const SizedBox(height: 24),
-                                _fadeSlide(
-                                  8,
-                                  _InsightsSection(
-                                    insights: _data!.today.aiInsights,
-                                  ),
-                                ),
-                              ],
                               const SizedBox(height: 24),
                               _fadeSlide(
-                                9,
+                                7,
                                 _WellnessFocusCard(
                                   brief: _data!.today.aiBrief,
                                   onPlan: _scrollToPlan,
@@ -718,8 +658,9 @@ class _Header extends StatelessWidget {
 
   IconData get _timeIcon {
     final hour = DateTime.now().hour;
-    if (hour < 12) return Icons.wb_sunny_outlined;
-    if (hour < 17) return Icons.wb_cloudy_outlined;
+    if (hour >= 5 && hour < 12) return Icons.wb_sunny_outlined;
+    if (hour >= 12 && hour < 17) return Icons.wb_cloudy_outlined;
+    if (hour >= 17 && hour < 21) return Icons.wb_twilight_outlined;
     return Icons.nightlight_outlined;
   }
 
@@ -1921,15 +1862,6 @@ class _TasksSection extends StatelessWidget {
             ],
           ],
         ),
-        const SizedBox(height: 6),
-        Text(
-          'Habit checks are separate from metric logs — use Log water, Log meal, etc. to track amounts.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textMuted,
-                fontSize: 12,
-                height: 1.35,
-              ),
-        ),
         const SizedBox(height: 12),
         _DashboardCard(
           padding: EdgeInsets.zero,
@@ -1939,8 +1871,7 @@ class _TasksSection extends StatelessWidget {
                   child: HarmoniousEmptyState(
                     icon: Icons.check_circle_outline,
                     title: 'No habits yet',
-                    message:
-                        'Tap Add habit to build your routine, or complete onboarding to get suggested habits.',
+                    message: 'Tap Add habit to build your routine.',
                     compact: true,
                   ),
                 )
@@ -1951,11 +1882,6 @@ class _TasksSection extends StatelessWidget {
                         task: tasks[i],
                         onToggle: () => onToggle(tasks[i]),
                         onRemove: () => onRemove(tasks[i]),
-                        helperText: tasks[i].id == 'water'
-                            ? 'Checking this marks the habit — use Log water to track amount.'
-                            : tasks[i].id == 'workout'
-                                ? 'Move goal — use Log exercise to track minutes.'
-                                : null,
                       ),
                       if (i != tasks.length - 1)
                         Divider(
@@ -1978,13 +1904,11 @@ class _TaskRow extends StatelessWidget {
     required this.task,
     required this.onToggle,
     required this.onRemove,
-    this.helperText,
   });
 
   final HomeTask task;
   final VoidCallback onToggle;
   final VoidCallback onRemove;
-  final String? helperText;
 
   @override
   Widget build(BuildContext context) {
@@ -1995,7 +1919,6 @@ class _TaskRow extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AnimatedScale(
               scale: done ? 1 : 0.92,
@@ -2031,36 +1954,20 @@ class _TaskRow extends StatelessWidget {
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeOutCubic,
-                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                          decoration: done
-                              ? TextDecoration.lineThrough
-                              : TextDecoration.none,
-                          decorationColor: AppColors.textMuted,
-                          color:
-                              done ? AppColors.textMuted : AppColors.textPrimary,
-                          fontSize: 15,
-                          height: 1.3,
-                        ),
-                    child: Text(task.label),
-                  ),
-                  if (helperText != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      helperText!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textMuted,
-                            fontSize: 11.5,
-                            height: 1.3,
-                          ),
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                      decoration: done
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
+                      decorationColor: AppColors.textMuted,
+                      color:
+                          done ? AppColors.textMuted : AppColors.textPrimary,
+                      fontSize: 15,
+                      height: 1.3,
                     ),
-                  ],
-                ],
+                child: Text(task.label),
               ),
             ),
             IconButton(
@@ -2560,139 +2467,6 @@ class _GoalRow extends StatelessWidget {
   }
 }
 
-class _InsightsSection extends StatelessWidget {
-  const _InsightsSection({required this.insights});
-
-  final List<String> insights;
-
-  IconData _iconFor(String text) {
-    final lower = text.toLowerCase();
-    if (lower.contains('water') || lower.contains('hydration')) {
-      return Icons.water_drop_outlined;
-    }
-    if (lower.contains('calorie') || lower.contains('meal') || lower.contains('kcal')) {
-      return Icons.restaurant_outlined;
-    }
-    if (lower.contains('movement') ||
-        lower.contains('walk') ||
-        lower.contains('exercise')) {
-      return Icons.directions_walk_outlined;
-    }
-    if (lower.contains('mood')) return Icons.sentiment_satisfied_alt_outlined;
-    if (lower.contains('sleep')) return Icons.bedtime_outlined;
-    return Icons.insights_outlined;
-  }
-
-  Color _accentFor(String text) {
-    final lower = text.toLowerCase();
-    if (lower.contains('water') || lower.contains('hydration')) {
-      return AppColors.sky;
-    }
-    if (lower.contains('calorie') || lower.contains('meal') || lower.contains('kcal')) {
-      return AppColors.amber;
-    }
-    if (lower.contains('movement') ||
-        lower.contains('walk') ||
-        lower.contains('exercise')) {
-      return AppColors.coral;
-    }
-    if (lower.contains('mood')) return AppColors.mint;
-    if (lower.contains('sleep')) return AppColors.lavender;
-    return AppColors.cyanAccent;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            const Expanded(child: HarmoniousSectionHeader(title: 'Insights')),
-            Text(
-              'From today\'s logs',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                  ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _DashboardCard(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-          child: Column(
-            children: [
-              for (var i = 0; i < insights.length; i++) ...[
-                if (i > 0) const SizedBox(height: 10),
-                _InsightRow(
-                  icon: _iconFor(insights[i]),
-                  accent: _accentFor(insights[i]),
-                  text: insights[i],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InsightRow extends StatelessWidget {
-  const _InsightRow({
-    required this.icon,
-    required this.accent,
-    required this.text,
-  });
-
-  final IconData icon;
-  final Color accent;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(icon, size: 17, color: accent),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                text,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      height: 1.45,
-                      fontSize: 14,
-                      color: AppColors.textPrimary,
-                    ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _PrimaryAction extends StatelessWidget {
   const _PrimaryAction({required this.label, required this.onTap});
 
@@ -2763,4 +2537,3 @@ class _SecondaryAction extends StatelessWidget {
     );
   }
 }
-

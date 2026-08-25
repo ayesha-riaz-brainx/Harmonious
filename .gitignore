@@ -34,3 +34,6 @@ frontend/ios/Flutter/.last_build_id
 *.class
 *.pyc
 *.swp
+
+# Release binaries (build locally)
+releases/

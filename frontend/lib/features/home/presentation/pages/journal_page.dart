@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import 'package:slot_1_tasks/core/services/feature_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
+import 'package:slot_1_tasks/features/home/presentation/widgets/collapsible_history_card.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/quick_add_sheet.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_background.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_gradient_button.dart';
@@ -162,14 +163,11 @@ class _JournalPageState extends State<JournalPage> {
                       const HarmoniousPageHeader(
                         icon: Icons.menu_book_outlined,
                         title: 'Journal',
-                        subtitle:
-                            'Capture reflections, gratitude, or anything on your mind.',
                         iconColor: AppColors.sky,
                       ),
                       const SizedBox(height: 24),
                       const HarmoniousSectionHeader(
                         title: 'Write',
-                        subtitle: 'A few sentences is enough.',
                       ),
                       const SizedBox(height: 12),
                       HarmoniousCard(
@@ -218,11 +216,6 @@ class _JournalPageState extends State<JournalPage> {
                         onPressed: _saving ? null : _save,
                       ),
                       const SizedBox(height: HarmoniousSpacing.sectionGap),
-                      const HarmoniousSectionHeader(
-                        title: 'History',
-                        subtitle: 'Past reflections you’ve saved.',
-                      ),
-                      const SizedBox(height: 12),
                       if (_loading)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 32),
@@ -245,38 +238,19 @@ class _JournalPageState extends State<JournalPage> {
                             compact: true,
                           ),
                         )
-                      else if ((_entries ?? const []).isEmpty)
-                        const HarmoniousCard(
-                          child: HarmoniousEmptyState(
-                            icon: Icons.edit_note_outlined,
-                            title: 'No entries yet',
-                            message:
-                                'Your saved reflections will appear here after you write your first note.',
-                            compact: true,
-                          ),
-                        )
                       else
-                        HarmoniousCard(
-                          padding: EdgeInsets.zero,
-                          child: Column(
-                            children: [
-                              for (var i = 0; i < _entries!.length; i++) ...[
-                                if (i > 0)
-                                  Divider(
-                                    height: 1,
-                                    indent: 16,
-                                    endIndent: 16,
-                                    color: AppColors.cardBorder
-                                        .withValues(alpha: 0.85),
-                                  ),
-                                _JournalHistoryTile(
-                                  entry: _entries![i],
-                                  onTap: () =>
-                                      setState(() => _selected = _entries![i]),
-                                ),
-                              ],
-                            ],
-                          ),
+                        CollapsibleHistoryCard(
+                          itemCount: (_entries ?? const []).length,
+                          emptyMessage:
+                              'Your saved reflections will appear here after you write your first note.',
+                          title: 'History',
+                          itemBuilder: (context, i) {
+                            final entry = _entries![i];
+                            return _JournalHistoryTile(
+                              entry: entry,
+                              onTap: () => setState(() => _selected = entry),
+                            );
+                          },
                         ),
                     ],
                   ),

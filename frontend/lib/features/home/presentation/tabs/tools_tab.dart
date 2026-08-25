@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
+import 'package:slot_1_tasks/features/home/presentation/pages/bmi_assessment_page.dart';
+import 'package:slot_1_tasks/features/home/presentation/pages/cosmic_checkin_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/emotional_support_page.dart';
+import 'package:slot_1_tasks/features/home/presentation/pages/entertainment_recommendations_page.dart';
+import 'package:slot_1_tasks/features/home/presentation/pages/exercise_tracking_page.dart';
+import 'package:slot_1_tasks/features/home/presentation/pages/journal_page.dart';
+import 'package:slot_1_tasks/features/home/presentation/pages/meal_tracking_page.dart';
+import 'package:slot_1_tasks/features/home/presentation/pages/mood_tracking_page.dart';
+import 'package:slot_1_tasks/features/home/presentation/pages/sleep_tracking_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/water_tracking_page.dart';
+import 'package:slot_1_tasks/features/home/presentation/pages/weight_tracking_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/water_glass_card.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_background.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_ui.dart';
@@ -29,11 +38,74 @@ class ToolsTabState extends State<ToolsTab> {
       AppColors.sky,
     ),
     (
+      'meals',
+      'Meals',
+      'Calories today + meal history',
+      Icons.restaurant_rounded,
+      AppColors.amber,
+    ),
+    (
+      'mood',
+      'Mood',
+      'Check-ins and mood history',
+      Icons.mood_rounded,
+      AppColors.mint,
+    ),
+    (
+      'exercise',
+      'Exercise',
+      'Minutes today + workout history',
+      Icons.fitness_center_rounded,
+      AppColors.coral,
+    ),
+    (
+      'sleep',
+      'Sleep',
+      'Hours logged + sleep history',
+      Icons.bedtime_rounded,
+      AppColors.lavender,
+    ),
+    (
+      'weight',
+      'Weight tracker',
+      'Log weight and see history',
+      Icons.monitor_weight_outlined,
+      AppColors.amber,
+    ),
+    (
+      'journal',
+      'Journal',
+      'Write and review daily notes',
+      Icons.menu_book_rounded,
+      AppColors.lavender,
+    ),
+    (
       'emotional_support',
       'Emotional support',
       'Grounding, breathing, and check-ins',
       Icons.favorite_rounded,
       AppColors.coral,
+    ),
+    (
+      'bmi',
+      'BMI check',
+      'Height + weight healthy range',
+      Icons.accessibility_new_rounded,
+      AppColors.primaryMuted,
+    ),
+    (
+      'mood_picks',
+      'Mood picks',
+      'Movies and shows for how you feel',
+      Icons.movie_filter_rounded,
+      AppColors.aqua,
+    ),
+    (
+      'cosmic',
+      'Cosmic check-in',
+      'Daily theme for focus and wellness',
+      Icons.auto_awesome_rounded,
+      AppColors.secondary,
     ),
   ];
 
@@ -49,9 +121,83 @@ class ToolsTabState extends State<ToolsTab> {
       }
       return;
     }
+    if (tool == 'meals') {
+      final changed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(builder: (_) => const MealTrackingPage()),
+      );
+      if (changed == true) {
+        await widget.onDataChanged?.call(includeToday: true);
+      }
+      return;
+    }
+    if (tool == 'mood') {
+      final changed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(builder: (_) => const MoodTrackingPage()),
+      );
+      if (changed == true) {
+        await widget.onDataChanged?.call(includeToday: true);
+      }
+      return;
+    }
+    if (tool == 'exercise') {
+      final changed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(builder: (_) => const ExerciseTrackingPage()),
+      );
+      if (changed == true) {
+        await widget.onDataChanged?.call(includeToday: true);
+      }
+      return;
+    }
+    if (tool == 'sleep') {
+      final changed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(builder: (_) => const SleepTrackingPage()),
+      );
+      if (changed == true) {
+        await widget.onDataChanged?.call(includeToday: true);
+      }
+      return;
+    }
     if (tool == 'emotional_support') {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => const EmotionalSupportPage()),
+      );
+      return;
+    }
+    if (tool == 'journal') {
+      final changed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(builder: (_) => const JournalPage()),
+      );
+      if (changed == true) {
+        await widget.onDataChanged?.call(includeToday: true);
+      }
+      return;
+    }
+    if (tool == 'weight') {
+      final changed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(builder: (_) => const WeightTrackingPage()),
+      );
+      if (changed == true) {
+        await widget.onDataChanged?.call(includeToday: true);
+      }
+      return;
+    }
+    if (tool == 'bmi') {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const BmiAssessmentPage()),
+      );
+      return;
+    }
+    if (tool == 'mood_picks') {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const EntertainmentRecommendationsPage(),
+        ),
+      );
+      return;
+    }
+    if (tool == 'cosmic') {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const CosmicCheckInPage()),
       );
     }
   }
@@ -71,7 +217,6 @@ class ToolsTabState extends State<ToolsTab> {
             const HarmoniousPageHeader(
               icon: Icons.spa_outlined,
               title: 'Wellness tools',
-              subtitle: 'Quick helpers for hydration and emotional care.',
             ),
             const SizedBox(height: HarmoniousSpacing.sectionGap),
             GridView.builder(

@@ -5,7 +5,7 @@ import 'package:slot_1_tasks/features/onboarding/data/onboarding_draft.dart';
 import 'package:slot_1_tasks/features/onboarding/data/onboarding_options.dart';
 import 'package:slot_1_tasks/features/onboarding/presentation/widgets/onboarding_widgets.dart';
 
-/// Pick daily habits to track — multi-select with sensible defaults.
+/// Pick daily habits to track — optional multi-select.
 class HabitsStep extends StatefulWidget {
   const HabitsStep({
     super.key,
@@ -44,7 +44,7 @@ class _HabitsStepState extends State<HabitsStep> {
           eyebrow: 'Daily habits',
           title: 'What do you want to track?',
           subtitle:
-              'Pick a few habits for your routine. You can add or change these anytime on Today.',
+              'Pick habits you want — or tap Skip for now and add them later on Today.',
         ),
         const SizedBox(height: 8),
         for (final (id, label) in OnboardingOptions.habitPresets) ...[
@@ -69,7 +69,10 @@ class _HabitsStepState extends State<HabitsStep> {
         OnboardingFooterButton(
           label: 'Continue',
           onPressed: selected.isEmpty ? null : widget.onContinue,
-          onSkip: widget.onContinue,
+          onSkip: () {
+            widget.draft.selectedHabits = [];
+            widget.onContinue();
+          },
         ),
       ],
     );

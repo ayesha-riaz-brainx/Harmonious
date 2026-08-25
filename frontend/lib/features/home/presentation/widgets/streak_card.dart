@@ -12,41 +12,34 @@ class StreakCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final count = streak.currentStreak;
-    final dayLabel = count == 1 ? 'Day' : 'Days';
-    final subtitle = count > 0
-        ? "Keep going! You're building a healthy routine."
-        : 'Log water, meals, mood, or habits to start your streak.';
+    final dayLabel = count == 1 ? 'day' : 'days';
+    final title = count > 0 ? '$count $dayLabel' : 'Start streak';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.amber.withValues(alpha: 0.35),
-        ),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.amber.withValues(alpha: 0.08),
-            AppColors.cardSurface,
-          ],
+          color: AppColors.amber.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
             children: [
-              const Text('🔥', style: TextStyle(fontSize: 22)),
-              const SizedBox(width: 10),
+              const Text('🔥', style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  count > 0 ? '$count $dayLabel Streak' : 'Start Your Streak',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontSize: 18,
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
                       ),
@@ -54,22 +47,22 @@ class StreakCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                  height: 1.35,
-                ),
-          ),
           if (streak.bestStreak > 0) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 4),
             Text(
-              'Best Streak: ${streak.bestStreak} ${streak.bestStreak == 1 ? 'day' : 'days'}',
+              'Best ${streak.bestStreak}d',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: AppColors.textMuted,
                     fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                  ),
+            ),
+          ] else ...[
+            const SizedBox(height: 4),
+            Text(
+              'Log to begin',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.textMuted,
                     fontSize: 11,
                   ),
             ),
@@ -91,68 +84,64 @@ class WellnessScoreCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.cyanAccent.withValues(alpha: 0.35),
+          color: AppColors.cyanAccent.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
             children: [
-              const Text('🌱', style: TextStyle(fontSize: 20)),
-              const SizedBox(width: 10),
+              const Text('🌱', style: TextStyle(fontSize: 15)),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  "Today's Wellness Score",
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontSize: 17,
+                  'Wellness',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
               ),
               Text(
-                '${breakdown.total} / 100',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontSize: 20,
+                '${breakdown.total}',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: AppColors.cyanAccent,
                     ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(99),
             child: LinearProgressIndicator(
               value: progress.clamp(0.0, 1.0),
-              minHeight: 6,
+              minHeight: 4,
               backgroundColor: AppColors.cardBorder.withValues(alpha: 0.8),
               valueColor: const AlwaysStoppedAnimation<Color>(
                 AppColors.cyanAccent,
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Text(
             breakdown.label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
                   color: AppColors.mint,
-                  fontSize: 14,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            breakdown.message,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                  height: 1.35,
-                  fontSize: 13,
+                  fontSize: 11,
                 ),
           ),
         ],

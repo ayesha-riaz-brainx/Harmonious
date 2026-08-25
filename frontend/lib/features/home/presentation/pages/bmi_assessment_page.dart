@@ -125,31 +125,52 @@ class _BmiAssessmentPageState extends State<BmiAssessmentPage> {
       final data = await _api.get('settings');
       final profile =
           Map<String, dynamic>.from(data['profile'] as Map? ?? {});
+      final onboarding =
+          Map<String, dynamic>.from(data['onboarding_data'] as Map? ?? {});
       if (!mounted) return;
 
-      final age = profile['age'];
-      final height = profile['height'];
-      final weight = profile['weight'];
-      final gender = profile['gender']?.toString().toLowerCase().trim();
-      final heightUnit = profile['height_unit']?.toString().toLowerCase();
-      final weightUnit = profile['weight_unit']?.toString().toLowerCase();
+      num? numOf(String key) {
+        final direct = profile[key];
+        if (direct is num) return direct;
+        final parsed = num.tryParse(direct?.toString() ?? '');
+        if (parsed != null) return parsed;
+        final nested = onboarding[key];
+        if (nested is num) return nested;
+        return num.tryParse(nested?.toString() ?? '');
+      }
+
+      final age = numOf('age');
+      final height = numOf('height');
+      final weight = numOf('weight');
+      final gender = (profile['gender'] ?? onboarding['gender'])
+          ?.toString()
+          .toLowerCase()
+          .trim();
+      final heightUnit =
+          (profile['height_unit'] ?? onboarding['height_unit'])
+              ?.toString()
+              .toLowerCase();
+      final weightUnit =
+          (profile['weight_unit'] ?? onboarding['weight_unit'])
+              ?.toString()
+              .toLowerCase();
 
       double? heightCm;
-      if (height is num) {
+      if (height != null) {
         heightCm = heightUnit == 'ft'
             ? height.toDouble() * 30.48
             : height.toDouble();
       }
 
       double? weightKg;
-      if (weight is num) {
+      if (weight != null) {
         weightKg = weightUnit == 'lb'
             ? weight.toDouble() * 0.453592
             : weight.toDouble();
       }
 
       setState(() {
-        if (age != null) _age.text = age.toString();
+        if (age != null) _age.text = age.round().toString();
         if (heightCm != null) {
           _height.text = heightCm.toStringAsFixed(
             heightCm == heightCm.roundToDouble() ? 0 : 1,
@@ -178,7 +199,7 @@ class _BmiAssessmentPageState extends State<BmiAssessmentPage> {
     }
   }
 
-  void _calculate() {
+  Future<void> _calculate() async {
     final age = int.tryParse(_age.text.trim());
     final height = double.tryParse(_height.text.trim());
     final weight = double.tryParse(_weight.text.trim());
@@ -199,6 +220,22 @@ class _BmiAssessmentPageState extends State<BmiAssessmentPage> {
     setState(() {
       _result = calculateBmi(heightCm: height, weightKg: weight);
     });
+
+    // Persist so You / profile stay in sync with onboarding values.
+    try {
+      await _api.patch('settings', {
+        'profile': {
+          'age': age,
+          'height': height,
+          'weight': weight,
+          'gender': _gender,
+          'height_unit': 'cm',
+          'weight_unit': 'kg',
+        },
+      });
+    } catch (_) {
+      // BMI result still shows even if save fails.
+    }
   }
 
   void _toast(String message) {
@@ -235,9 +272,6 @@ class _BmiAssessmentPageState extends State<BmiAssessmentPage> {
                 children: [
                   const HarmoniousSectionHeader(
                     title: 'Weight & BMI',
-                    subtitle:
-                        'A simple WHO-style adult BMI check based on height and weight. '
-                        'BMI is a screening tool, not a diagnosis.',
                   ),
                   const SizedBox(height: 22),
                   _field(_age, 'Age', 'years'),

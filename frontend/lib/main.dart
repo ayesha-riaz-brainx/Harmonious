@@ -10,9 +10,14 @@ Future<void> main() async {
   await dotenv.load(fileName: '.env');
 
   if (SupabaseConfig.isConfigured) {
+    // Implicit flow: email confirm opens the web landing page, then the user
+    // signs in in the app. PKCE is for deep-link OAuth, not this flow.
     await Supabase.initialize(
       url: SupabaseConfig.url,
       publishableKey: SupabaseConfig.anonKey,
+      authOptions: const FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.implicit,
+      ),
     );
   } else {
     debugPrint(
