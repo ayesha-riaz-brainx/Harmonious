@@ -303,28 +303,67 @@ class _YouTabState extends State<YouTab> {
   }
 
   Future<void> _deleteAccount() async {
+    final confirmController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Delete account?'),
-        content: const Text(
-          'This permanently deletes your Harmonious account and data. '
-          'This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.coral),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        var typedOk = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.surface,
+              title: const Text('Delete account?'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'This permanently deletes your Harmonious account and all '
+                    'saved data. This cannot be undone.',
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Type DELETE to confirm.',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: confirmController,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(
+                      hintText: 'DELETE',
+                    ),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        typedOk = value.trim().toUpperCase() == 'DELETE';
+                      });
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: !typedOk
+                      ? null
+                      : () => Navigator.pop(dialogContext, true),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.coral,
+                  ),
+                  child: const Text('Delete forever'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+    confirmController.dispose();
     if (confirmed != true || !mounted) return;
 
     setState(() => _busy = true);

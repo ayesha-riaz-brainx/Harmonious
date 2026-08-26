@@ -13,18 +13,15 @@ class OnboardingService {
 
   String _mapError(Object error) {
     final text = error.toString().toLowerCase();
-    if (text.contains('onboarding_data') ||
-        text.contains('ai_profile') ||
-        (text.contains('column') && text.contains('does not exist'))) {
-      return 'Onboarding columns missing. Run supabase/onboarding.sql in Supabase SQL Editor.';
+    if (text.contains('jwt') ||
+        text.contains('session') ||
+        text.contains('not authenticated')) {
+      return 'Session expired. Please sign in again.';
     }
-    final raw = error.toString();
-    if (raw.length < 180) {
-      return raw
-          .replaceFirst('Exception: ', '')
-          .replaceFirst('PostgrestException(', '')
-          .split('\n')
-          .first;
+    if (text.contains('network') ||
+        text.contains('socket') ||
+        text.contains('failed host lookup')) {
+      return 'No internet connection. Please try again.';
     }
     return 'Unable to save onboarding. Please try again.';
   }

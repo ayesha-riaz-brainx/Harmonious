@@ -144,7 +144,17 @@ class _CheckEmailPageState extends State<CheckEmailPage> {
                 ),
                 _Step(
                   number: '3',
-                  text: 'Return here and sign in to continue.',
+                  text:
+                      'Return here only after the confirmation page says your email is verified, then sign in.',
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  AppStrings.checkEmailMustVerify,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textMuted,
+                        height: 1.45,
+                      ),
                 ),
                 const SizedBox(height: 24),
                 HarmoniousGradientButton(

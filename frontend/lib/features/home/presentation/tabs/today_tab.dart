@@ -428,8 +428,7 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
                 ? HarmoniousErrorState(
                     message: _error!,
                     onRetry: _load,
-                    hint:
-                        'Tip: run supabase/daily_logs.sql and keep the backend running.',
+                    hint: 'Pull to refresh, or try again in a moment.',
                   )
                 : RefreshIndicator(
                     color: AppColors.cyanAccent,

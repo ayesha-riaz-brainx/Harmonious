@@ -26,6 +26,8 @@ class AppStrings {
       'Account created. We sent a verification link to your inbox.';
   static const emailNotConfirmed =
       'Please verify your email first. Open the link we sent, then sign in.';
+  static const checkEmailMustVerify =
+      'You must open the verification link in your email before you can sign in.';
   static const profileSetupTitle = 'Set up your profile';
   static const profileSetupSubtitle =
       'A few essentials so Harmonious can personalize your experience.';

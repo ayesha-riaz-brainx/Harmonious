@@ -59,7 +59,8 @@ class _LoginPageState extends State<LoginPage> {
 
     if (!result.success) {
       setState(() => _isLoading = false);
-      final needsVerify = result.message.toLowerCase().contains('verify');
+      final needsVerify = result.needsEmailConfirmation ||
+          result.message.toLowerCase().contains('verify');
       AuthNotice.show(
         context,
         message: result.message,

@@ -36,4 +36,7 @@ Deploy the latest backend so `/auth/email-confirmed` serves the click-to-confirm
 4. Set the subject from the table above.
 5. Save. Send a test signup from the app.
 
-For reset / magic / change-email templates, keep their `{{ .ConfirmationURL }}` (or equivalent) as written in those files.
+For reset / magic / change-email templates:
+- **Reset password:** paste `reset-password.html` (uses `{{ .TokenHash }}` + `{{ .RedirectTo }}`)
+- Redirect URL must also include: `https://harmonious.onrender.com/auth/reset-password`
+- Magic / change-email: keep their template variables as written in those files.

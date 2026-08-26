@@ -79,24 +79,15 @@ class ProfileService {
 
   String _mapSaveError(Object error) {
     final text = error.toString().toLowerCase();
-    if (text.contains('display_name') ||
-        text.contains('profile_setup_completed') ||
-        text.contains('column') && text.contains('does not exist')) {
-      return 'Database columns missing. Run supabase/setup_all.sql in Supabase → SQL Editor, then try again.';
+    if (text.contains('jwt') ||
+        text.contains('session') ||
+        text.contains('not authenticated')) {
+      return 'Session expired. Please sign in again.';
     }
-    if (text.contains('row-level security') || text.contains('rls')) {
-      return 'Permission denied saving profile. Re-run supabase/setup_all.sql for RLS policies.';
-    }
-    if (text.contains('jwt') || text.contains('session')) {
-      return 'Session expired. Please log in again.';
-    }
-    final raw = error.toString();
-    if (raw.length < 180) {
-      return raw
-          .replaceFirst('Exception: ', '')
-          .replaceFirst('PostgrestException(', '')
-          .split('\n')
-          .first;
+    if (text.contains('network') ||
+        text.contains('socket') ||
+        text.contains('failed host lookup')) {
+      return 'No internet connection. Please try again.';
     }
     return 'Unable to save profile. Please try again.';
   }

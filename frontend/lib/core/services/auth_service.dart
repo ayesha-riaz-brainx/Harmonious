@@ -31,8 +31,15 @@ class AuthResult {
     );
   }
 
-  factory AuthResult.failure(String message) {
-    return AuthResult._(success: false, message: message);
+  factory AuthResult.failure(
+    String message, {
+    bool needsEmailConfirmation = false,
+  }) {
+    return AuthResult._(
+      success: false,
+      message: message,
+      needsEmailConfirmation: needsEmailConfirmation,
+    );
   }
 
   final bool success;
@@ -52,7 +59,7 @@ class AuthService {
       return _client ?? Supabase.instance.client;
     } catch (_) {
       throw StateError(
-        'Supabase is still starting. Wait a moment and try again.',
+        'Harmonious is still starting. Wait a moment and try again.',
       );
     }
   }
@@ -90,66 +97,90 @@ class AuthService {
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
 
+  /// User-facing copy only — never leak provider / SDK / SQL details.
   String _mapError(Object error) {
-    final text = error.toString();
-    final lower = text.toLowerCase();
+    final raw = error is AuthException ? error.message : error.toString();
+    final lower = raw.toLowerCase();
 
     if (error is SocketException ||
         lower.contains('socket') ||
         lower.contains('network') ||
         lower.contains('failed host lookup') ||
-        lower.contains('clientexception')) {
+        lower.contains('clientexception') ||
+        lower.contains('failed to fetch') ||
+        lower.contains('connection')) {
       return 'No internet connection. Please try again.';
     }
 
     if (lower.contains('rate limit') ||
         lower.contains('over_email_send_rate_limit') ||
-        lower.contains('email rate limit')) {
-      return 'Too many signup emails sent. In Supabase → Authentication → Providers → Email, turn off “Confirm email”, wait a minute, then try again.';
+        lower.contains('email rate limit') ||
+        lower.contains('too many requests')) {
+      return 'Too many emails sent. Wait about a minute, then try again.';
     }
 
-    if (error is AuthException) {
-      final msg = error.message.toLowerCase();
-      if (msg.contains('rate limit') ||
-          msg.contains('over_email_send_rate_limit')) {
-        return 'Too many emails sent. Wait about a minute, then try Resend.';
-      }
-      if (msg.contains('error sending confirmation email') ||
-          msg.contains('error sending') ||
-          msg.contains('smtp')) {
-        return 'Could not send the verification email. Check Supabase SMTP '
-            '(Username must be the full Gmail address, not “Harmonious”).';
-      }
-      if (msg.contains('email not confirmed') ||
-          msg.contains('not confirmed')) {
-        return 'Please verify your email first. Open the link we sent, then sign in.';
-      }
-      if (msg.contains('invalid login') || msg.contains('invalid credentials')) {
-        return 'Invalid email or password.';
-      }
-      if (msg.contains('already') || msg.contains('registered')) {
-        return 'An account with this email already exists. Try signing in.';
-      }
-      if (msg.contains('password')) {
-        return error.message;
-      }
-      if (msg.contains('email')) {
-        return error.message;
-      }
-      return error.message;
+    if (lower.contains('error sending confirmation email') ||
+        lower.contains('error sending') ||
+        lower.contains('smtp')) {
+      return 'Could not send the verification email. Please try again shortly.';
     }
 
-    // Postgrest / schema issues
-    if (lower.contains('display_name') || lower.contains('column')) {
-      return 'Database profile columns are missing. Run supabase/profiles_extend.sql in Supabase SQL Editor.';
-    }
-    if (lower.contains('row-level security') || lower.contains('rls')) {
-      return 'Profile permission error. Check Supabase RLS policies on profiles.';
+    if (lower.contains('email not confirmed') ||
+        lower.contains('not confirmed') ||
+        lower.contains('email_not_confirmed')) {
+      return 'Please verify your email first. Open the link we sent, then sign in.';
     }
 
-    // Surface a useful message instead of a generic one
-    if (text.isNotEmpty && text.length < 180) {
-      return text.replaceFirst('Exception: ', '').replaceFirst('PostgrestException(', '').split('\n').first;
+    if (lower.contains('invalid login') ||
+        lower.contains('invalid credentials') ||
+        lower.contains('invalid_credentials')) {
+      return 'Invalid email or password.';
+    }
+
+    if (lower.contains('already') ||
+        lower.contains('registered') ||
+        lower.contains('user_already_exists')) {
+      return 'An account with this email already exists. Try signing in.';
+    }
+
+    if (lower.contains('password should be') ||
+        lower.contains('password is too') ||
+        lower.contains('weak_password')) {
+      return 'Password is too weak. Use at least 8 characters.';
+    }
+
+    if (lower.contains('valid email') || lower.contains('invalid email')) {
+      return 'Please enter a valid email address.';
+    }
+
+    if (lower.contains('user not found') || lower.contains('user_not_found')) {
+      return 'No account found for that email.';
+    }
+
+    if (lower.contains('session') && lower.contains('expired')) {
+      return 'Your session expired. Please sign in again.';
+    }
+
+    if (lower.contains('display_name') ||
+        lower.contains('column') ||
+        lower.contains('row-level security') ||
+        lower.contains('rls') ||
+        lower.contains('postgrest') ||
+        lower.contains('pgrst')) {
+      return 'Something went wrong saving your profile. Please try again.';
+    }
+
+    // Never show AuthException / AuthApiException / Supabase / GoTrue text.
+    if (lower.contains('supabase') ||
+        lower.contains('gotrue') ||
+        lower.contains('authexception') ||
+        lower.contains('authapiexception') ||
+        lower.contains('authretryable') ||
+        lower.contains('authsessionmissing') ||
+        lower.contains('statuscode') ||
+        lower.contains('sign in with') ||
+        lower.contains('signinwith')) {
+      return 'Unable to sign in right now. Please try again.';
     }
 
     return 'Something went wrong. Please try again.';
@@ -162,7 +193,7 @@ class AuthService {
   }) async {
     if (!SupabaseConfig.isConfigured) {
       return AuthResult.failure(
-        'Supabase is not configured. Add keys to frontend/.env',
+        'Unable to create an account right now. Please try again later.',
       );
     }
 
@@ -205,8 +236,8 @@ class AuthService {
     final identities = user.identities ?? const [];
     if (identities.isEmpty && response.session == null) {
       return AuthResult.failure(
-        'An account with this email already exists. Sign in, or delete the '
-        'user in Supabase → Authentication → Users and try again.',
+        'An account with this email already exists. Try signing in, or use '
+        'Forgot password if you need to reset access.',
       );
     }
 
@@ -248,7 +279,7 @@ class AuthService {
   Future<AuthResult> resendSignupConfirmation({required String email}) async {
     if (!SupabaseConfig.isConfigured) {
       return AuthResult.failure(
-        'Supabase is not configured. Add keys to frontend/.env',
+        'Unable to resend the email right now. Please try again later.',
       );
     }
 
@@ -274,7 +305,7 @@ class AuthService {
   }) async {
     if (!SupabaseConfig.isConfigured) {
       return AuthResult.failure(
-        'Supabase is not configured. Add keys to frontend/.env',
+        'Unable to sign in right now. Please try again later.',
       );
     }
 
@@ -289,6 +320,19 @@ class AuthService {
         return AuthResult.failure('Invalid email or password.');
       }
 
+      // Always enforce email verification in the app, even if the auth
+      // provider would otherwise issue a session.
+      final confirmed = (user.emailConfirmedAt ?? '').trim().isNotEmpty;
+      if (!confirmed) {
+        try {
+          await _supabase.auth.signOut();
+        } catch (_) {}
+        return AuthResult.failure(
+          'Please verify your email first. Open the link we sent, then sign in.',
+          needsEmailConfirmation: true,
+        );
+      }
+
       return AuthResult.success(
         message: 'Logged in successfully.',
         user: {
@@ -298,14 +342,19 @@ class AuthService {
         },
       );
     } catch (error) {
-      return AuthResult.failure(_mapError(error));
+      final mapped = _mapError(error);
+      final needsVerify = mapped.toLowerCase().contains('verify');
+      return AuthResult.failure(
+        mapped,
+        needsEmailConfirmation: needsVerify,
+      );
     }
   }
 
   Future<AuthResult> forgotPassword({required String email}) async {
     if (!SupabaseConfig.isConfigured) {
       return AuthResult.failure(
-        'Supabase is not configured. Add keys to frontend/.env',
+        'Unable to reset password right now. Please try again later.',
       );
     }
 
