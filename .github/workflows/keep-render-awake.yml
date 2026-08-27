@@ -1,0 +1,29 @@
+# Keep the Render free backend from sleeping (idle spin-down ~15 min).
+name: Keep Render awake
+
+on:
+  schedule:
+    # Every 10 minutes
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Harmonious health endpoint
+        run: |
+          set -e
+          for i in 1 2 3; do
+            code=$(curl -sS -o /tmp/health.json -w "%{http_code}" --max-time 90 \
+              "https://harmonious.onrender.com/api/health" || true)
+            echo "attempt=$i http=$code"
+            cat /tmp/health.json || true
+            echo
+            if [ "$code" = "200" ]; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Health check failed after retries"
+          exit 1

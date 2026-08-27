@@ -228,7 +228,7 @@ class HomeService {
   Future<HomeDashboard> fetchToday() async {
     final response = await http
         .get(ApiConfig.homeToday, headers: ApiConfig.authHeaders())
-        .timeout(const Duration(seconds: 30));
+        .timeout(const Duration(seconds: 60));
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode >= 400) {
@@ -244,7 +244,7 @@ class HomeService {
           headers: ApiConfig.authHeaders(),
           body: jsonEncode(patch),
         )
-        .timeout(const Duration(seconds: 20));
+        .timeout(const Duration(seconds: 45));
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode >= 400) {

@@ -7,6 +7,7 @@ import 'package:slot_1_tasks/core/services/home_service.dart';
 import 'package:slot_1_tasks/core/services/streak_service.dart';
 import 'package:slot_1_tasks/core/services/wellness_score_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
+import 'package:slot_1_tasks/core/utils/user_facing_error.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/emotional_support_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/pages/journal_page.dart';
 import 'package:slot_1_tasks/features/home/presentation/widgets/health_snapshot_card.dart';
@@ -158,7 +159,10 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
       setState(() {
         _loading = false;
         if (!silent) {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = userFacingError(
+            e,
+            fallback: 'Unable to load your dashboard. Please try again.',
+          );
         }
       });
     }
@@ -428,7 +432,7 @@ class TodayTabState extends State<TodayTab> with TickerProviderStateMixin {
                 ? HarmoniousErrorState(
                     message: _error!,
                     onRetry: _load,
-                    hint: 'Pull to refresh, or try again in a moment.',
+                    hint: 'Pull down to refresh, or tap Retry.',
                   )
                 : RefreshIndicator(
                     color: AppColors.cyanAccent,

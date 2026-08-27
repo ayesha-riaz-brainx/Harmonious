@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'package:slot_1_tasks/core/constants/app_routes.dart';
 import 'package:slot_1_tasks/core/constants/app_strings.dart';
+import 'package:slot_1_tasks/core/services/auth_service.dart';
+import 'package:slot_1_tasks/core/services/backend_prewarm.dart';
+import 'package:slot_1_tasks/core/services/profile_service.dart';
 import 'package:slot_1_tasks/core/theme/app_colors.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_background.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_logo.dart';
-import 'package:slot_1_tasks/core/services/auth_service.dart';
-import 'package:slot_1_tasks/core/services/profile_service.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -35,9 +36,11 @@ class _SplashPageState extends State<SplashPage>
   }
 
   Future<void> _bootstrap() async {
+    // Kick the API while splash animates so Today is less likely to time out.
     await Future.wait([
       Future<void>.delayed(const Duration(milliseconds: 1600)),
       _auth.ensureInitialized(),
+      prewarmBackend(),
     ]);
 
     if (!mounted) return;

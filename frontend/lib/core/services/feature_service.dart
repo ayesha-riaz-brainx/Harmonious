@@ -14,7 +14,7 @@ class FeatureService {
           ApiConfig.feature(path, query: query),
           headers: ApiConfig.authHeaders(),
         )
-        .timeout(const Duration(seconds: 40));
+        .timeout(const Duration(seconds: 60));
     return _decode(response);
   }
 
