@@ -24,16 +24,18 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Harmonious uses your microphone for voice conversations with your AI coach.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Harmonious converts your voice into text for AI coaching.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Harmonious uses the camera to analyze meals and health documents you choose.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Harmonious lets you select meal photos and health documents to analyze.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>Harmonious uses the camera to analyze meals and health documents you choose.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Harmonious uses your microphone for voice conversations with your AI coach.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Harmonious lets you select meal photos and health documents to analyze.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Harmonious converts your voice into text for AI coaching.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
