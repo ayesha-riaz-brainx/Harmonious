@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:slot_1_tasks/core/config/turnstile_config.dart';
 import 'package:slot_1_tasks/core/constants/app_routes.dart';
 import 'package:slot_1_tasks/core/constants/app_strings.dart';
 import 'package:slot_1_tasks/core/services/auth_service.dart';
@@ -9,6 +10,7 @@ import 'package:slot_1_tasks/core/theme/app_colors.dart';
 import 'package:slot_1_tasks/shared/widgets/auth_notice.dart';
 import 'package:slot_1_tasks/shared/widgets/auth_screen_scaffold.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_gradient_button.dart';
+import 'package:slot_1_tasks/shared/widgets/turnstile_captcha.dart';
 
 class CheckEmailPage extends StatefulWidget {
   const CheckEmailPage({
@@ -26,7 +28,9 @@ class CheckEmailPage extends StatefulWidget {
 
 class _CheckEmailPageState extends State<CheckEmailPage> {
   late final AuthService _auth;
+  final _captchaKey = GlobalKey<TurnstileCaptchaState>();
   bool _resending = false;
+  String? _captchaToken;
 
   @override
   void initState() {
@@ -57,11 +61,35 @@ class _CheckEmailPageState extends State<CheckEmailPage> {
     );
   }
 
+  void _resetCaptcha() {
+    _captchaToken = null;
+    _captchaKey.currentState?.reset();
+  }
+
+  bool get _captchaReady =>
+      !TurnstileConfig.isConfigured ||
+      (_captchaToken != null && _captchaToken!.isNotEmpty);
+
   Future<void> _resend() async {
+    if (!_captchaReady) {
+      AuthNotice.show(
+        context,
+        message: 'Complete the security check below.',
+        tone: AuthNoticeTone.warning,
+      );
+      return;
+    }
+
     setState(() => _resending = true);
-    final result = await _auth.resendSignupConfirmation(email: widget.email);
+    final result = await _auth.resendSignupConfirmation(
+      email: widget.email,
+      captchaToken: _captchaToken,
+    );
     if (!mounted) return;
     setState(() => _resending = false);
+    if (!result.success) {
+      _resetCaptcha();
+    }
     AuthNotice.show(
       context,
       message: result.message,
@@ -157,6 +185,15 @@ class _CheckEmailPageState extends State<CheckEmailPage> {
                       ),
                 ),
                 const SizedBox(height: 24),
+                if (TurnstileConfig.isConfigured) ...[
+                  TurnstileCaptcha(
+                    key: _captchaKey,
+                    onToken: (token) => setState(() => _captchaToken = token),
+                    onExpired: _resetCaptcha,
+                    onError: _resetCaptcha,
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 HarmoniousGradientButton(
                   label: AppStrings.openMailApp,
                   onPressed: _openMailApp,

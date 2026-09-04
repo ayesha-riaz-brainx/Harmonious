@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import 'package:slot_1_tasks/core/config/turnstile_config.dart';
 import 'package:slot_1_tasks/core/constants/app_routes.dart';
 import 'package:slot_1_tasks/core/constants/app_strings.dart';
 import 'package:slot_1_tasks/core/services/auth_service.dart';
@@ -10,6 +11,7 @@ import 'package:slot_1_tasks/shared/widgets/auth_notice.dart';
 import 'package:slot_1_tasks/shared/widgets/auth_screen_scaffold.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_gradient_button.dart';
 import 'package:slot_1_tasks/shared/widgets/harmonious_text_field.dart';
+import 'package:slot_1_tasks/shared/widgets/turnstile_captcha.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, this.authService, this.initialEmail});
@@ -27,8 +29,10 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   late final AuthService _authService;
   final _profiles = ProfileService();
+  final _captchaKey = GlobalKey<TurnstileCaptchaState>();
   bool _obscurePassword = true;
   bool _isLoading = false;
+  String? _captchaToken;
 
   @override
   void initState() {
@@ -47,18 +51,37 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  void _resetCaptcha() {
+    _captchaToken = null;
+    _captchaKey.currentState?.reset();
+  }
+
+  bool get _captchaReady =>
+      !TurnstileConfig.isConfigured ||
+      (_captchaToken != null && _captchaToken!.isNotEmpty);
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_captchaReady) {
+      AuthNotice.show(
+        context,
+        message: 'Complete the security check below.',
+        tone: AuthNoticeTone.warning,
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
     final result = await _authService.login(
       email: _emailController.text,
       password: _passwordController.text,
+      captchaToken: _captchaToken,
     );
     if (!mounted) return;
 
     if (!result.success) {
       setState(() => _isLoading = false);
+      _resetCaptcha();
       final needsVerify = result.needsEmailConfirmation ||
           result.message.toLowerCase().contains('verify');
       AuthNotice.show(
@@ -196,6 +219,15 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
+                  if (TurnstileConfig.isConfigured) ...[
+                    const SizedBox(height: 16),
+                    TurnstileCaptcha(
+                      key: _captchaKey,
+                      onToken: (token) => setState(() => _captchaToken = token),
+                      onExpired: _resetCaptcha,
+                      onError: _resetCaptcha,
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   HarmoniousGradientButton(
                     label: AppStrings.login,

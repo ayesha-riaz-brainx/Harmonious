@@ -6,6 +6,11 @@ const {
   createResetCode,
   consumeResetCode,
 } = require('../services/passwordResetService');
+const { checkRateLimit } = require('../services/rateLimitService');
+const {
+  resolvePasswordResetRedirect,
+  sendPasswordResetLink,
+} = require('../services/supabaseAuthService');
 
 const signUpValidation = [
   body('fullName').trim().notEmpty().withMessage('Full name is required.'),
@@ -34,6 +39,12 @@ const forgotValidation = [
     .isEmail()
     .withMessage('Enter a valid email address.')
     .normalizeEmail(),
+  body('captchaToken')
+    .optional()
+    .isString()
+    .trim()
+    .notEmpty()
+    .withMessage('Complete the security check and try again.'),
 ];
 
 const resetValidation = [
@@ -172,25 +183,60 @@ async function login(req, res, next) {
   }
 }
 
+function requestIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.length > 0) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.ip || 'unknown';
+}
+
 async function forgotPassword(req, res, next) {
   try {
     if (validationFailed(req, res)) return;
 
     const email = req.body.email.trim().toLowerCase();
-    const supabase = getSupabaseAdmin();
-    const user = await findUserByEmail(supabase, email);
+    const ip = requestIp(req);
 
-    if (user) {
-      const { code } = await createResetCode(email);
-      await sendPasswordResetEmail({ to: email, code });
+    const ipLimit = checkRateLimit(`forgot:ip:${ip}`, {
+      maxHits: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!ipLimit.allowed) {
+      return res.status(429).json({
+        message: 'Too many reset requests. Please try again later.',
+      });
     }
+
+    const emailLimit = checkRateLimit(`forgot:email:${email}`, {
+      maxHits: 2,
+      windowMs: 24 * 60 * 60 * 1000,
+    });
+    if (!emailLimit.allowed) {
+      return res.status(429).json({
+        message:
+          'A reset link was already sent recently. Check your inbox or try again tomorrow.',
+      });
+    }
+
+    const captchaToken = (req.body.captchaToken || '').trim();
+
+    await sendPasswordResetLink({
+      email,
+      redirectTo: resolvePasswordResetRedirect(req),
+      captchaToken: captchaToken || undefined,
+    });
 
     return res.json({
       message:
-        'If an account exists for that email, a 6-digit reset code has been sent. Check your inbox (or Mailtrap Email Testing).',
+        'If an account exists for that email, we sent a reset link. '
+        + 'Open it, choose a new password, then sign in in the app.',
     });
   } catch (error) {
-    if (error.code === 'MAIL_NOT_CONFIGURED') {
+    if (error.status === 429) {
+      return res.status(429).json({ message: error.message });
+    }
+    if (error.status === 503) {
       return res.status(503).json({ message: error.message });
     }
     return next(error);

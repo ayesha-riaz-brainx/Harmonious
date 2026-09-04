@@ -14,6 +14,9 @@ const featuresRouter = require('./routes/features');
 const app = express();
 const publicDir = path.join(__dirname, '../public');
 
+// Render / reverse proxies set X-Forwarded-For for rate limiting.
+app.set('trust proxy', 1);
+
 app.use(
   helmet({
     contentSecurityPolicy: false,

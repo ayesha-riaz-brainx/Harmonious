@@ -62,6 +62,7 @@ class ApiConfig {
   static String get privacyPolicyUrl => '$baseUrl/privacy-policy.html';
 
   static Uri get signUp => Uri.parse('$baseUrl/api/auth/signup');
+  static Uri get forgotPassword => Uri.parse('$baseUrl/api/auth/forgot-password');
   static Uri get deleteAccount => Uri.parse('$baseUrl/api/auth/account');
   static Uri get homeToday => Uri.parse('$baseUrl/api/home/today');
 

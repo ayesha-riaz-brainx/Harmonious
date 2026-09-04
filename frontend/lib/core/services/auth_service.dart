@@ -119,6 +119,12 @@ class AuthService {
       return 'Too many emails sent. Wait about a minute, then try again.';
     }
 
+    if (lower.contains('captcha') ||
+        lower.contains('turnstile') ||
+        lower.contains('security check')) {
+      return 'Complete the security check and try again.';
+    }
+
     if (lower.contains('error sending confirmation email') ||
         lower.contains('error sending') ||
         lower.contains('smtp')) {
@@ -190,6 +196,7 @@ class AuthService {
     required String fullName,
     required String email,
     required String password,
+    String? captchaToken,
   }) async {
     if (!SupabaseConfig.isConfigured) {
       return AuthResult.failure(
@@ -208,6 +215,7 @@ class AuthService {
         fullName: trimmedName,
         email: trimmedEmail,
         password: password,
+        captchaToken: captchaToken,
       );
     } catch (error) {
       return AuthResult.failure(_mapError(error));
@@ -218,12 +226,14 @@ class AuthService {
     required String fullName,
     required String email,
     required String password,
+    String? captchaToken,
   }) async {
     final response = await _supabase.auth.signUp(
       email: email,
       password: password,
       emailRedirectTo: ApiConfig.emailConfirmedPageUrl,
       data: {'full_name': fullName},
+      captchaToken: captchaToken,
     );
 
     final user = response.user;
@@ -276,7 +286,10 @@ class AuthService {
     );
   }
 
-  Future<AuthResult> resendSignupConfirmation({required String email}) async {
+  Future<AuthResult> resendSignupConfirmation({
+    required String email,
+    String? captchaToken,
+  }) async {
     if (!SupabaseConfig.isConfigured) {
       return AuthResult.failure(
         'Unable to resend the email right now. Please try again later.',
@@ -288,6 +301,7 @@ class AuthService {
         type: OtpType.signup,
         email: email.trim().toLowerCase(),
         emailRedirectTo: ApiConfig.emailConfirmedPageUrl,
+        captchaToken: captchaToken,
       );
       return AuthResult.success(
         message: 'Verification email resent. Check your inbox.',
@@ -302,6 +316,7 @@ class AuthService {
   Future<AuthResult> login({
     required String email,
     required String password,
+    String? captchaToken,
   }) async {
     if (!SupabaseConfig.isConfigured) {
       return AuthResult.failure(
@@ -313,6 +328,7 @@ class AuthService {
       final response = await _supabase.auth.signInWithPassword(
         email: email.trim().toLowerCase(),
         password: password,
+        captchaToken: captchaToken,
       );
 
       final user = response.user;
@@ -351,24 +367,45 @@ class AuthService {
     }
   }
 
-  Future<AuthResult> forgotPassword({required String email}) async {
-    if (!SupabaseConfig.isConfigured) {
-      return AuthResult.failure(
-        'Unable to reset password right now. Please try again later.',
-      );
-    }
-
+  Future<AuthResult> forgotPassword({
+    required String email,
+    String? captchaToken,
+  }) async {
     try {
-      await _supabase.auth.resetPasswordForEmail(
-        email.trim().toLowerCase(),
-        redirectTo: ApiConfig.passwordResetPageUrl,
-      );
-      return AuthResult.success(
-        message:
-            'If an account exists for that email, we sent a reset link. '
-            'Open it, choose a new password, then sign in in the app.',
-        signedIn: false,
-      );
+      final payload = <String, dynamic>{
+        'email': email.trim().toLowerCase(),
+      };
+      if (captchaToken != null && captchaToken.isNotEmpty) {
+        payload['captchaToken'] = captchaToken;
+      }
+
+      final response = await http
+          .post(
+            ApiConfig.forgotPassword,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 45));
+
+      final body = response.body.isNotEmpty
+          ? jsonDecode(response.body) as Map<String, dynamic>
+          : <String, dynamic>{};
+      final message = (body['message'] as String?) ??
+          'If an account exists for that email, we sent a reset link. '
+              'Open it, choose a new password, then sign in in the app.';
+
+      if (response.statusCode == 429) {
+        return AuthResult.failure(message);
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return AuthResult.success(message: message, signedIn: false);
+      }
+
+      return AuthResult.failure(_mapError(Exception(message)));
     } catch (error) {
       return AuthResult.failure(_mapError(error));
     }
