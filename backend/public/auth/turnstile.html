@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Harmonious security check</title>
+    <script
+      src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+      async
+      defer
+    ></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #0e0e12;
+        color: #f2f0fa;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        min-height: 100%;
+      }
+      #wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 12px;
+        gap: 8px;
+        min-height: 90px;
+      }
+      #status {
+        font-size: 12px;
+        color: #9b97ab;
+        text-align: center;
+        min-height: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="wrap">
+      <div id="cf-turnstile"></div>
+      <div id="status">Loading security check…</div>
+    </div>
+    <script>
+      function qs(name) {
+        return new URLSearchParams(window.location.search).get(name) || "";
+      }
+
+      function post(msg) {
+        try {
+          if (window.TurnstileChannel && window.TurnstileChannel.postMessage) {
+            window.TurnstileChannel.postMessage(msg);
+          }
+        } catch (_) {}
+      }
+
+      function setStatus(text) {
+        var el = document.getElementById("status");
+        if (el) el.textContent = text || "";
+      }
+
+      function boot() {
+        var siteKey = qs("sitekey");
+        if (!siteKey) {
+          setStatus("Missing site key.");
+          post("__error__");
+          return;
+        }
+
+        if (typeof turnstile === "undefined") {
+          setStatus("Unable to reach Cloudflare. Check your connection.");
+          post("__error__");
+          return;
+        }
+
+        turnstile.render("#cf-turnstile", {
+          sitekey: siteKey,
+          theme: "dark",
+          callback: function (token) {
+            setStatus("");
+            post(token);
+          },
+          "expired-callback": function () {
+            setStatus("Security check expired. Tap retry.");
+            post("__expired__");
+          },
+          "error-callback": function () {
+            setStatus("Unable to connect. Check domain settings / network.");
+            post("__error__");
+          },
+        });
+        setStatus("");
+      }
+
+      window.addEventListener("load", function () {
+        var tries = 0;
+        var timer = setInterval(function () {
+          tries += 1;
+          if (typeof turnstile !== "undefined") {
+            clearInterval(timer);
+            boot();
+          } else if (tries > 40) {
+            clearInterval(timer);
+            setStatus("Unable to connect to website.");
+            post("__error__");
+          }
+        }, 100);
+      });
+    </script>
+  </body>
+</html>

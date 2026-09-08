@@ -189,8 +189,8 @@ class _CheckEmailPageState extends State<CheckEmailPage> {
                   TurnstileCaptcha(
                     key: _captchaKey,
                     onToken: (token) => setState(() => _captchaToken = token),
-                    onExpired: _resetCaptcha,
-                    onError: _resetCaptcha,
+                    onExpired: () => setState(() => _captchaToken = null),
+                    onError: () => setState(() => _captchaToken = null),
                   ),
                   const SizedBox(height: 16),
                 ],
